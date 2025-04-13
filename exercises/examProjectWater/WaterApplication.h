@@ -30,6 +30,7 @@ private:
     void InitializeRenderer();
 
     void RenderGUI();
+    std::shared_ptr<Mesh> CreatePlaneMesh(int vertexWidth, int vertexHeight, bool generateTerrain, float worldWidth, float worldHeight);
 
 private:
     // Helper object for debug GUI
