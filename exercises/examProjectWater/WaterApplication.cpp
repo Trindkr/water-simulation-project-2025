@@ -224,11 +224,14 @@ void WaterApplication::InitializeModels()
 	std::shared_ptr<Model> chestModel = loader.LoadShared("models/treasure_chest/treasure_chest.obj");
 	m_scene.AddSceneNode(std::make_shared<SceneModel>("treasure chest", chestModel));
 
-	std::shared_ptr<Mesh> mesh = CreatePlaneMesh(128, 128, false, 10.0f, 10.0f);
+	/*std::shared_ptr<Mesh> mesh = CreatePlaneMesh(128, 128, false, 10.0f, 10.0f);
 	std::shared_ptr<Model> planeModel = std::make_shared<Model>(mesh);
 	planeModel->AddMaterial(m_defaultMaterial); 
 	
-	m_scene.AddSceneNode(std::make_shared<SceneModel>("plane", planeModel));
+	m_scene.AddSceneNode(std::make_shared<SceneModel>("plane", planeModel));*/
+	
+	std::shared_ptr<Model> cubeModel = CreateCubeModel(); 
+	m_scene.AddSceneNode(std::make_shared<SceneModel>("cube", cubeModel));
 
 
 
@@ -240,6 +243,91 @@ void WaterApplication::InitializeModels()
 
 	//std::shared_ptr<Model> clockModel = loader.LoadShared("models/alarm_clock/alarm_clock.obj");
 	//m_scene.AddSceneNode(std::make_shared<SceneModel>("alarm clock", clockModel));
+}
+std::shared_ptr<Model> WaterApplication::CreateCubeModel()
+{
+	struct CubeVertex
+	{
+		glm::vec3 position;
+		glm::vec3 normal;
+		glm::vec2 texcoord;
+	};
+
+	std::vector<CubeVertex> cubeVertices = {
+		// Front face
+		{{-0.5f, -0.5f,  0.5f}, {0, 0, 1}, {0, 0}},
+		{{ 0.5f, -0.5f,  0.5f}, {0, 0, 1}, {1, 0}},
+		{{ 0.5f,  0.5f,  0.5f}, {0, 0, 1}, {1, 1}},
+		{{-0.5f,  0.5f,  0.5f}, {0, 0, 1}, {0, 1}},
+		// Back face
+		{{ 0.5f, -0.5f, -0.5f}, {0, 0, -1}, {0, 0}},
+		{{-0.5f, -0.5f, -0.5f}, {0, 0, -1}, {1, 0}},
+		{{-0.5f,  0.5f, -0.5f}, {0, 0, -1}, {1, 1}},
+		{{ 0.5f,  0.5f, -0.5f}, {0, 0, -1}, {0, 1}},
+		// Left face
+		{{-0.5f, -0.5f, -0.5f}, {-1, 0, 0}, {0, 0}},
+		{{-0.5f, -0.5f,  0.5f}, {-1, 0, 0}, {1, 0}},
+		{{-0.5f,  0.5f,  0.5f}, {-1, 0, 0}, {1, 1}},
+		{{-0.5f,  0.5f, -0.5f}, {-1, 0, 0}, {0, 1}},
+		// Right face
+		{{ 0.5f, -0.5f,  0.5f}, {1, 0, 0}, {0, 0}},
+		{{ 0.5f, -0.5f, -0.5f}, {1, 0, 0}, {1, 0}},
+		{{ 0.5f,  0.5f, -0.5f}, {1, 0, 0}, {1, 1}},
+		{{ 0.5f,  0.5f,  0.5f}, {1, 0, 0}, {0, 1}},
+		// Top face
+		{{-0.5f,  0.5f,  0.5f}, {0, 1, 0}, {0, 0}},
+		{{ 0.5f,  0.5f,  0.5f}, {0, 1, 0}, {1, 0}},
+		{{ 0.5f,  0.5f, -0.5f}, {0, 1, 0}, {1, 1}},
+		{{-0.5f,  0.5f, -0.5f}, {0, 1, 0}, {0, 1}},
+		// Bottom face
+		{{-0.5f, -0.5f, -0.5f}, {0, -1, 0}, {0, 0}},
+		{{ 0.5f, -0.5f, -0.5f}, {0, -1, 0}, {1, 0}},
+		{{ 0.5f, -0.5f,  0.5f}, {0, -1, 0}, {1, 1}},
+		{{-0.5f, -0.5f,  0.5f}, {0, -1, 0}, {0, 1}},
+	};
+
+	std::vector<unsigned int> cubeIndices = {
+		0, 1, 2, 2, 3, 0,
+		4, 5, 6, 6, 7, 4,
+		8, 9, 10, 10, 11, 8,
+		12, 13, 14, 14, 15, 12,
+		16, 17, 18, 18, 19, 16,
+		20, 21, 22, 22, 23, 20,
+	};
+
+	VertexBufferObject vbo;
+	vbo.Bind();
+	vbo.AllocateData(std::span(cubeVertices));
+
+	ElementBufferObject ebo;
+	ebo.Bind();
+	ebo.AllocateData(std::span(cubeIndices));
+
+	VertexArrayObject vao;
+	vao.Bind();
+
+	VertexFormat format;
+	format.AddVertexAttribute(Data::Type::Float, 3, false, VertexAttribute::Semantic::Position);
+	format.AddVertexAttribute(Data::Type::Float, 3, false, VertexAttribute::Semantic::Normal);
+	format.AddVertexAttribute(Data::Type::Float, 2, false, VertexAttribute::Semantic::TexCoord0);
+
+	unsigned int location = 0;
+	for (auto it = format.LayoutBegin(static_cast<int>(std::size(cubeVertices)), true); it != format.LayoutEnd(); it++)
+	{
+		vao.SetAttribute(location, it->GetAttribute(), it->GetOffset(), it->GetStride());
+		location += it->GetAttribute().GetLocationSize();
+	}
+
+	ebo.Bind();
+
+	std::shared_ptr<Mesh> mesh = std::make_shared<Mesh>();
+	unsigned int vaoIndex = mesh->AddVertexArray();
+	mesh->AddSubmesh(vaoIndex, Drawcall::Primitive::Triangles, 0, static_cast<GLsizei>(std::size(cubeIndices)), Data::Type::UInt);
+
+	std::shared_ptr<Model> model = std::make_shared<Model>(mesh);
+	model->AddMaterial(m_defaultMaterial);
+
+	return model;
 }
 
 std::shared_ptr<Mesh> WaterApplication::CreatePlaneMesh(int vertexWidth, int vertexHeight, bool generateTerrain, float worldWidth, float worldHeight)
@@ -394,4 +482,6 @@ void WaterApplication::RenderGUI()
 
 	m_imGui.EndFrame();
 }
+
+
 
