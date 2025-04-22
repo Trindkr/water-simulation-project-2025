@@ -231,6 +231,7 @@ void WaterApplication::InitializeModels()
 	m_scene.AddSceneNode(std::make_shared<SceneModel>("plane", planeModel));*/
 	
 	std::shared_ptr<Model> cubeModel = CreateCubeModel(); 
+	cubeModel->SetMaterial(0, m_defaultMaterial); // Set the material for the cube model
 	m_scene.AddSceneNode(std::make_shared<SceneModel>("cube", cubeModel));
 
 
