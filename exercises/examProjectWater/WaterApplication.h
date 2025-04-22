@@ -17,7 +17,7 @@ class Material;
 class WaterApplication : public Application
 {
 public:
-	WaterApplication();
+	WaterApplication(unsigned int x, unsigned int y);
 
 protected:
     void Initialize() override;
@@ -37,6 +37,7 @@ private:
     void CreateTerrainMesh(Mesh& mesh, unsigned int gridX, unsigned int gridY);
 
 private:
+
     // Helper object for debug GUI
     DearImGui m_imGui;
 
@@ -60,4 +61,6 @@ private:
     ShaderLoader m_fragmentShaderLoader;
 
     std::shared_ptr<Mesh> m_waterMesh;
+
+	unsigned int m_gridX, m_gridY;
 };

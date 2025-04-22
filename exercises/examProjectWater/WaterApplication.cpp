@@ -35,11 +35,13 @@
 #include <iostream>
 
 
-WaterApplication::WaterApplication()
-	: Application(1024, 1024, "Water applicaiton")
+WaterApplication::WaterApplication(unsigned int x, unsigned int y)
+	: Application(1920, 1080, "Water applicaiton")
 	, m_renderer(GetDevice())
 	, m_vertexShaderLoader(Shader::Type::VertexShader)
 	, m_fragmentShaderLoader(Shader::Type::FragmentShader)
+	, m_gridX(x)
+	, m_gridY(y)
 {
 }
 
@@ -77,6 +79,17 @@ void WaterApplication::Initialize()
 void WaterApplication::Update()
 {
 	Application::Update();
+
+	const Window& window = GetMainWindow();
+	int width, height;
+	window.GetDimensions(width, height);
+	float aspectRatio = static_cast<float>(width) / height;
+
+	if (m_cameraController.GetCamera())
+	{
+		Camera& camera = *m_cameraController.GetCamera()->GetCamera(); 
+		camera.SetPerspectiveProjectionMatrix(static_cast<float>(std::numbers::pi) * 0.5f, aspectRatio, 0.1f, 100.0f);
+	}
 
 	// Update camera controller
 	m_cameraController.Update(GetMainWindow(), GetDeltaTime());
@@ -226,7 +239,7 @@ void WaterApplication::InitializeMeshes()
 
 void WaterApplication::InitializeModels()
 {
-	m_skyboxTexture = TextureCubemapLoader::LoadTextureShared("models/skybox/defaultCubemap.png", TextureObject::FormatRGB, TextureObject::InternalFormatSRGB8);
+	m_skyboxTexture = TextureCubemapLoader::LoadTextureShared("models/skybox/skyCubemap.png", TextureObject::FormatRGB, TextureObject::InternalFormatSRGB8);
 
 	m_skyboxTexture->Bind();
 	float maxLod;
