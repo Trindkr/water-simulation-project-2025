@@ -1,12 +1,15 @@
 #pragma once
 
 #include <ituGL/application/Application.h>
+
 #include <ituGL/scene/Scene.h>
-#include <ituGL/texture/FramebufferObject.h>
+#include <ituGL/asset/ShaderLoader.h>
+#include <ituGL/geometry/Mesh.h>
 #include <ituGL/renderer/Renderer.h>
 #include <ituGL/camera/CameraController.h>
 #include <ituGL/utils/DearImGui.h>
-#include <array>
+#include <ituGL/shader/Material.h>
+
 
 class TextureCubemapObject;
 class Material;
@@ -26,12 +29,12 @@ private:
     void InitializeCamera();
     void InitializeLights();
     void InitializeMaterial();
+	void InitializeMeshes();
     void InitializeModels();
     void InitializeRenderer();
 
     void RenderGUI();
-    std::shared_ptr<Mesh> CreatePlaneMesh(int vertexWidth, int vertexHeight, bool generateTerrain, float worldWidth, float worldHeight);
-    std::shared_ptr<Model> CreateCubeModel();
+    void CreateTerrainMesh(Mesh& mesh, unsigned int gridX, unsigned int gridY);
 
 private:
     // Helper object for debug GUI
@@ -51,4 +54,10 @@ private:
 
     // Default material
     std::shared_ptr<Material> m_defaultMaterial;
+    std::shared_ptr<Material> m_waterMaterial;
+
+    ShaderLoader m_vertexShaderLoader;
+    ShaderLoader m_fragmentShaderLoader;
+
+    std::shared_ptr<Mesh> m_waterMesh;
 };
