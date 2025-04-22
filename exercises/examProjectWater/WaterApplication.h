@@ -28,13 +28,16 @@ protected:
 private:
     void InitializeCamera();
     void InitializeLights();
-    void InitializeMaterial();
+    void InitializeDefaultMaterial();
+    void InitializeWaterMaterial();
+    void InitializeSandMaterial();
+
 	void InitializeMeshes();
     void InitializeModels();
     void InitializeRenderer();
 
     void RenderGUI();
-    void CreateTerrainMesh(Mesh& mesh, unsigned int gridX, unsigned int gridY);
+    void CreatePlaneMesh(Mesh& mesh, unsigned int gridX, unsigned int gridY);
 
 private:
 
@@ -56,11 +59,12 @@ private:
     // Default material
     std::shared_ptr<Material> m_defaultMaterial;
     std::shared_ptr<Material> m_waterMaterial;
+    std::shared_ptr<Material> m_sandMaterial;
 
     ShaderLoader m_vertexShaderLoader;
     ShaderLoader m_fragmentShaderLoader;
 
-    std::shared_ptr<Mesh> m_waterMesh;
+    std::shared_ptr<Mesh> m_planeMesh;
 
 	unsigned int m_gridX, m_gridY;
 };

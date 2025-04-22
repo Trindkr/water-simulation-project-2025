@@ -66,7 +66,9 @@ void WaterApplication::Initialize()
 
 	InitializeCamera();
 	InitializeLights();
-	InitializeMaterial();
+	InitializeDefaultMaterial();
+	InitializeWaterMaterial();
+	InitializeSandMaterial();
 	InitializeMeshes();
 	InitializeModels();
 	InitializeRenderer();
@@ -74,6 +76,7 @@ void WaterApplication::Initialize()
 	//Enable depth test
 	GetDevice().EnableFeature(GL_DEPTH_TEST);
 	//GetDevice().DisableFeature(GL_CULL_FACE); 
+	//GetDevice().SetWireframeEnabled(true);
 }
 
 void WaterApplication::Update()
@@ -151,7 +154,7 @@ void WaterApplication::InitializeLights()
 	//pointLight->SetDistanceAttenuation(glm::vec2(5.0f, 10.0f));
 	//m_scene.AddSceneNode(std::make_shared<SceneLight>("point light", pointLight));
 }
-void WaterApplication::InitializeMaterial()
+void WaterApplication::InitializeDefaultMaterial()
 {
 	// Load and build shader
 	std::vector<const char*> vertexShaderPaths;
@@ -204,37 +207,94 @@ void WaterApplication::InitializeMaterial()
 	assert(shaderProgramPtr);
 	m_defaultMaterial = std::make_shared<Material>(shaderProgramPtr, filteredUniforms);
 
+	
+	//Create shader program for the sand/ground
+	Shader sandVS = m_vertexShaderLoader.Load("shaders/sand.vert"); 
+	Shader sandFS = m_fragmentShaderLoader.Load("shaders/sand.frag"); 
+	std::shared_ptr<ShaderProgram> sandShaderProgram = std::make_shared<ShaderProgram>();
+	sandShaderProgram->Build(sandVS, sandFS); 
+
+	ShaderProgram::Location sandWorldMatrixLocation = sandShaderProgram->GetUniformLocation("WorldMatrix");
+	ShaderProgram::Location sandViewProjMatrixLocation = sandShaderProgram->GetUniformLocation("ViewProjMatrix");
+
+	m_renderer.RegisterShaderProgram(sandShaderProgram,
+		[=](const ShaderProgram& shaderProgram, const glm::mat4& worldMatrix, const Camera& camera, bool /*cameraChanged*/)
+		{
+			shaderProgram.SetUniform(sandWorldMatrixLocation, worldMatrix);
+			shaderProgram.SetUniform(sandViewProjMatrixLocation, camera.GetViewProjectionMatrix());
+		},
+		m_renderer.GetDefaultUpdateLightsFunction(*sandShaderProgram)
+	);
+
+}
+
+void WaterApplication::InitializeWaterMaterial()
+{
 	Shader waterVS = m_vertexShaderLoader.Load("shaders/water.vert");
 	Shader waterFS = m_fragmentShaderLoader.Load("shaders/water.frag");
 	std::shared_ptr<ShaderProgram> waterShaderProgram = std::make_shared<ShaderProgram>();
 	waterShaderProgram->Build(waterVS, waterFS);
 
-	ShaderProgram::Location waterWorldMatrixLocation = waterShaderProgram->GetUniformLocation("WorldMatrix"); 
-	ShaderProgram::Location waterViewProjMatrixLocation = waterShaderProgram->GetUniformLocation("ViewProjMatrix"); 
+	ShaderProgram::Location worldMatrixLocation = waterShaderProgram->GetUniformLocation("WorldMatrix");
+	ShaderProgram::Location viewProjMatrixLocation = waterShaderProgram->GetUniformLocation("ViewProjMatrix");
 
-	m_renderer.RegisterShaderProgram(waterShaderProgram, 
-		[=](const ShaderProgram& shaderProgram, const glm::mat4& worldMatrix, const Camera& camera, bool /*cameraChanged*/) 
+	m_renderer.RegisterShaderProgram(waterShaderProgram,
+		[=](const ShaderProgram& shaderProgram, const glm::mat4& worldMatrix, const Camera& camera, bool /*cameraChanged*/)
 		{
-			shaderProgram.SetUniform(waterWorldMatrixLocation, worldMatrix); 
-			shaderProgram.SetUniform(waterViewProjMatrixLocation, camera.GetViewProjectionMatrix()); 
+			shaderProgram.SetUniform(worldMatrixLocation, worldMatrix);
+			shaderProgram.SetUniform(viewProjMatrixLocation, camera.GetViewProjectionMatrix());
 		},
-		m_renderer.GetDefaultUpdateLightsFunction(*waterShaderProgram) 
+		m_renderer.GetDefaultUpdateLightsFunction(*waterShaderProgram)
 	);
 
-	// Water material
 	m_waterMaterial = std::make_shared<Material>(waterShaderProgram);
-	m_waterMaterial->SetUniformValue("Color", glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)); // Bright red, fully opaque
-	//m_waterMaterial->SetUniformValue("ColorTexture", m_waterTexture);
-	//m_waterMaterial->SetUniformValue("ColorTextureScale", glm::vec2(0.0625f));
+	m_waterMaterial->SetUniformValue("Color", glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
 	m_waterMaterial->SetBlendEquation(Material::BlendEquation::Add);
 	m_waterMaterial->SetBlendParams(Material::BlendParam::SourceAlpha, Material::BlendParam::OneMinusSourceAlpha);
 }
 
+void WaterApplication::InitializeSandMaterial()
+{
+	Shader sandVS = m_vertexShaderLoader.Load("shaders/sand.vert");
+	Shader sandFS = m_fragmentShaderLoader.Load("shaders/sand.frag");
+	std::shared_ptr<ShaderProgram> sandShaderProgram = std::make_shared<ShaderProgram>();
+	sandShaderProgram->Build(sandVS, sandFS);
+
+	ShaderProgram::Location worldMatrixLocation = sandShaderProgram->GetUniformLocation("WorldMatrix");
+	ShaderProgram::Location viewProjMatrixLocation = sandShaderProgram->GetUniformLocation("ViewProjMatrix");
+
+	m_renderer.RegisterShaderProgram(sandShaderProgram,
+		[=](const ShaderProgram& shaderProgram, const glm::mat4& worldMatrix, const Camera& camera, bool /*cameraChanged*/)
+		{
+			shaderProgram.SetUniform(worldMatrixLocation, worldMatrix);
+			shaderProgram.SetUniform(viewProjMatrixLocation, camera.GetViewProjectionMatrix());
+		},
+		m_renderer.GetDefaultUpdateLightsFunction(*sandShaderProgram)
+	);
+
+	std::shared_ptr<Texture2DObject> sandTexture = Texture2DLoader::LoadTextureShared(
+		"textures/sandTexture.jpg",                     // Your texture path
+		TextureObject::FormatRGB,               // Format that matches your texture
+		TextureObject::InternalFormatSRGB8,     // sRGB is good for color textures
+		true,                                   // Generate mipmaps
+		true                                    // Flip vertically (depends on your image)
+	);
+
+
+	// Optionally create a sand material if you'll use it later
+	m_sandMaterial = std::make_shared<Material>(sandShaderProgram);
+	m_sandMaterial->SetUniformValue("Color", glm::vec4(1.0f)); // No tint, just the texture
+	m_sandMaterial->SetUniformValue("ColorTexture", sandTexture);
+	m_sandMaterial->SetUniformValue("ColorTextureScale", glm::vec2(0.01f)); // Use (2.0, 2.0) for tiling, etc.
+
+}
+
+
 void WaterApplication::InitializeMeshes()
 {
-	m_waterMesh = std::make_shared<Mesh>();
-	CreateTerrainMesh(*m_waterMesh, 128, 128);
-	std::cout << "Water mesh submeshes: " << m_waterMesh->GetSubmeshCount() << std::endl;
+	m_planeMesh = std::make_shared<Mesh>();
+	CreatePlaneMesh(*m_planeMesh, m_gridX, m_gridY);
+	std::cout << "Water mesh submeshes: " << m_planeMesh->GetSubmeshCount() << std::endl;
 }
 
 void WaterApplication::InitializeModels()
@@ -287,17 +347,27 @@ void WaterApplication::InitializeModels()
 	//std::shared_ptr<Model> clockModel = loader.LoadShared("models/alarm_clock/alarm_clock.obj");
 	//m_scene.AddSceneNode(std::make_shared<SceneModel>("alarm clock", clockModel));
 
-	std::shared_ptr<Model> waterModel = std::make_shared<Model>(m_waterMesh);
+	std::shared_ptr<Model> waterModel = std::make_shared<Model>(m_planeMesh);
 
 	std::shared_ptr<Transform> waterTransform = std::make_shared<Transform>();
-	waterTransform->SetScale(glm::vec3(10.0f)); // Make it larger
+	waterTransform->SetScale(glm::vec3(5.0f)); // Make it larger
 	waterTransform->SetTranslation(glm::vec3(0.0f, -0.15f, 0.0f)); // Lower it slightly if needed
 	waterModel->AddMaterial(m_waterMaterial);
 
-	m_scene.AddSceneNode(std::make_shared<SceneModel>("water model", waterModel, waterTransform));
+	m_scene.AddSceneNode(std::make_shared<SceneModel>("water plane", waterModel, waterTransform));
+
+	std::shared_ptr<Model> sandModel = std::make_shared<Model>(m_planeMesh);
+
+	std::shared_ptr<Transform> sandTransform = std::make_shared<Transform>();
+	sandTransform->SetScale(glm::vec3(5.0f)); // Make it larger
+	sandTransform->SetTranslation(glm::vec3(0.0f, -1.0f, 0.0f)); // Lower it slightly if needed
+	sandModel->AddMaterial(m_sandMaterial);
+
+	m_scene.AddSceneNode(std::make_shared<SceneModel>("sand plane", sandModel, sandTransform));
+
 }
 
-void WaterApplication::CreateTerrainMesh(Mesh& mesh, unsigned int gridX, unsigned int gridY)
+void WaterApplication::CreatePlaneMesh(Mesh& mesh, unsigned int gridX, unsigned int gridY)
 {
 	// Define the vertex structure
 	struct Vertex
