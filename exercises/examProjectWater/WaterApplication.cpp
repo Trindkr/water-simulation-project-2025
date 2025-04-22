@@ -273,19 +273,17 @@ void WaterApplication::InitializeSandMaterial()
 	);
 
 	std::shared_ptr<Texture2DObject> sandTexture = Texture2DLoader::LoadTextureShared(
-		"textures/sandTexture.jpg",                     // Your texture path
-		TextureObject::FormatRGB,               // Format that matches your texture
-		TextureObject::InternalFormatSRGB8,     // sRGB is good for color textures
-		true,                                   // Generate mipmaps
-		true                                    // Flip vertically (depends on your image)
+		"textures/sandTexture.jpg",
+		TextureObject::FormatRGB,
+		TextureObject::InternalFormatSRGB8, 
+		true,
+		true
 	);
 
-
-	// Optionally create a sand material if you'll use it later
 	m_sandMaterial = std::make_shared<Material>(sandShaderProgram);
-	m_sandMaterial->SetUniformValue("Color", glm::vec4(1.0f)); // No tint, just the texture
+	m_sandMaterial->SetUniformValue("Color", glm::vec4(1.0f)); 
 	m_sandMaterial->SetUniformValue("ColorTexture", sandTexture);
-	m_sandMaterial->SetUniformValue("ColorTextureScale", glm::vec2(0.01f)); // Use (2.0, 2.0) for tiling, etc.
+	m_sandMaterial->SetUniformValue("ColorTextureScale", glm::vec2(0.01f));
 
 }
 
