@@ -48,7 +48,7 @@ public:
     DeviceGL& GetDevice() { return m_device; }
 
     int AddRenderPass(std::unique_ptr<RenderPass> renderPass);
-
+    void AddModelToCollection(const Model& model, const glm::mat4& worldMatrix, int collectionIndex);
     bool HasCamera() const;
     const Camera& GetCurrentCamera() const;
     void SetCurrentCamera(const Camera& camera);
@@ -77,7 +77,8 @@ public:
 
     void PrepareDrawcall(const DrawcallInfo& drawcallInfo);
 
-    void SetLightingRenderStates(bool firstPass);
+    //void SetLightingRenderStates(bool firstPass);
+    void SetLightingRenderStates(bool isTransparentPass, bool firstLight);
 
     void Render();
 

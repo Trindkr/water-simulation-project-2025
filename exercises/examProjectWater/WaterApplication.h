@@ -67,4 +67,5 @@ private:
     std::shared_ptr<Mesh> m_planeMesh;
 
 	unsigned int m_gridX, m_gridY;
+    float m_waterOpacity;
 };

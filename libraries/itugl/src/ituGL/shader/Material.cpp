@@ -21,6 +21,12 @@ Material::Material(std::shared_ptr<ShaderProgram> shaderProgram, const NameSet& 
 {
 }
 
+
+bool Material::IsTransparent() const
+{
+    return m_blendParams[0] == BlendParam::SourceAlpha &&
+        m_blendParams[1] == BlendParam::OneMinusSourceAlpha;
+}
 void Material::SetShaderSetupFunction(ShaderSetupFunction shaderSetupFunction)
 {
     m_shaderSetupFunction = shaderSetupFunction;
