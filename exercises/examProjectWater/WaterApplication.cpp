@@ -111,8 +111,6 @@ void WaterApplication::Render()
 	// Render the scene
 	m_renderer.Render();
 
-	glDepthMask(GL_TRUE); 
-
 	// Render the debug user interface
 	RenderGUI();
 }
@@ -434,8 +432,7 @@ void WaterApplication::CreatePlaneMesh(Mesh& mesh, unsigned int gridX, unsigned 
 void WaterApplication::InitializeRenderer()
 {
 	m_renderer.AddRenderPass(std::make_unique<SkyboxRenderPass>(m_skyboxTexture));
-	m_renderer.AddRenderPass(std::make_unique<ForwardRenderPass>(0)); // Opaque
-	//m_renderer.AddRenderPass(std::make_unique<ForwardRenderPass>(1)); // Transparent
+	m_renderer.AddRenderPass(std::make_unique<ForwardRenderPass>(0));
 
 }
 

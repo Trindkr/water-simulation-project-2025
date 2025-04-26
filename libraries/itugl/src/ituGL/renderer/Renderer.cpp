@@ -12,14 +12,13 @@
 #include <span>
 #include <algorithm>
 #include <cassert>
-#include <iostream>
 
 Renderer::Renderer(DeviceGL& device)
     : m_device(device)
     , m_currentCamera(nullptr)
     , m_defaultFramebuffer(FramebufferObject::GetDefault())
     , m_currentFramebuffer(m_defaultFramebuffer)
-	, m_drawcallCollections(1)
+    , m_drawcallCollections(1)
 {
     InitializeFullscreenMesh();
 
@@ -79,7 +78,7 @@ void Renderer::Render()
         SetCurrentFramebuffer(pass->GetTargetFramebuffer());
         pass->Render();
     }
-
+    
     Reset();
 }
 
@@ -92,6 +91,7 @@ void Renderer::Reset()
         collection.clear();
     }
 
+    glDepthMask(GL_TRUE);
     m_currentCamera = nullptr;
 }
 
@@ -103,7 +103,6 @@ int Renderer::AddRenderPass(std::unique_ptr<RenderPass> renderPass)
     // After moving renderPass, the local variable is empty and unusable, pass is now owned by m_passes
     return passIndex;
 }
-
 
 void Renderer::RegisterShaderProgram(std::shared_ptr<const ShaderProgram> shaderProgramPtr,
     const UpdateTransformsFunction& updateTransformFunction,
@@ -147,30 +146,30 @@ Renderer::UpdateLightsFunction Renderer::GetDefaultUpdateLightsFunction(const Sh
     ShaderProgram::Location lightAttenuationLocation = shaderProgram.GetUniformLocation("LightAttenuation");
 
     return [=](const ShaderProgram& shaderProgram, std::span<const Light* const> lights, unsigned int& lightIndex) -> bool
-    {
-        bool needsRender = lightIndex == 0;
-
-        shaderProgram.SetUniform(lightIndirectLocation, lightIndex == 0 ? 1 : 0);
-
-        if (lightIndex < lights.size())
         {
-            const Light& light = *lights[lightIndex];
-            shaderProgram.SetUniform(lightColorLocation, light.GetColor() * light.GetIntensity());
-            shaderProgram.SetUniform(lightPositionLocation, light.GetPosition());
-            shaderProgram.SetUniform(lightDirectionLocation, light.GetDirection());
-            shaderProgram.SetUniform(lightAttenuationLocation, light.GetAttenuation());
-            needsRender = true;
-        }
-        else
-        {
-            // Disable light
-            shaderProgram.SetUniform(lightColorLocation, glm::vec3(0.0f));
-        }
+            bool needsRender = lightIndex == 0;
 
-        lightIndex++;
+            shaderProgram.SetUniform(lightIndirectLocation, lightIndex == 0 ? 1 : 0);
 
-        return needsRender;
-    };
+            if (lightIndex < lights.size())
+            {
+                const Light& light = *lights[lightIndex];
+                shaderProgram.SetUniform(lightColorLocation, light.GetColor() * light.GetIntensity());
+                shaderProgram.SetUniform(lightPositionLocation, light.GetPosition());
+                shaderProgram.SetUniform(lightDirectionLocation, light.GetDirection());
+                shaderProgram.SetUniform(lightAttenuationLocation, light.GetAttenuation());
+                needsRender = true;
+            }
+            else
+            {
+                // Disable light
+                shaderProgram.SetUniform(lightColorLocation, glm::vec3(0.0f));
+            }
+
+            lightIndex++;
+
+            return needsRender;
+        };
 }
 
 bool Renderer::UpdateLights(std::shared_ptr<const ShaderProgram> shaderProgramPtr, std::span<const Light* const> lights, unsigned int& lightIndex) const
@@ -238,11 +237,9 @@ void Renderer::SetLightingRenderStates(bool firstPass)
     // Set the render states for the first and additional lights
     //m_device.SetFeatureEnabled(GL_BLEND, !firstPass);
     // TODO: This should not be hardcoded here
-
     glDepthFunc(firstPass ? GL_LESS : GL_EQUAL);
     //glBlendFunc(GL_ONE, GL_ONE);
 }
-
 
 void Renderer::InitializeFullscreenMesh()
 {
