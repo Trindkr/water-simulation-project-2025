@@ -42,7 +42,25 @@ WaterApplication::WaterApplication(unsigned int x, unsigned int y)
 	, m_fragmentShaderLoader(Shader::Type::FragmentShader)
 	, m_gridX(x)
 	, m_gridY(y)
+
+	// Water parameters
 	, m_waterOpacity(0.5f)
+	, m_waterTroughColor(0.0f, 0.0f, 1.0f, 1.0f) // Deep blue color
+	, m_waterSurfaceColor(0.0f, 1.0f, 0.0f, 1.0f) // Green color
+	, m_waterPeakColor(1.0f, 1.0f, 1.0f, 1.0f) // White color
+	, m_troughThreshold(0.0f)
+	, m_troughTransition(0.5f)
+	, m_peakThreshold(0.5f)
+	, m_peakTransition(0.5f)
+
+	//Wave parameters
+	, m_waveAmplitude(0.05f)
+	, m_waveFrequency(1.5f)
+	, m_wavePersistence(0.3f)
+	, m_waveLacunarity(2.0f)
+	, m_waveOctaves(6)
+	, m_waveSpeed(1.0f)
+
 {
 }
 
@@ -89,7 +107,7 @@ void WaterApplication::Update()
 
 	if (m_cameraController.GetCamera())
 	{
-		Camera& camera = *m_cameraController.GetCamera()->GetCamera(); 
+		Camera& camera = *m_cameraController.GetCamera()->GetCamera();
 		camera.SetPerspectiveProjectionMatrix(static_cast<float>(std::numbers::pi) * 0.5f, aspectRatio, 0.1f, 100.0f);
 	}
 
@@ -218,19 +236,42 @@ void WaterApplication::InitializeWaterMaterial()
 
 	ShaderProgram::Location worldMatrixLocation = waterShaderProgram->GetUniformLocation("WorldMatrix");
 	ShaderProgram::Location viewProjMatrixLocation = waterShaderProgram->GetUniformLocation("ViewProjMatrix");
+	ShaderProgram::Location timeLocation = waterShaderProgram->GetUniformLocation("Time");
 
 	m_renderer.RegisterShaderProgram(waterShaderProgram,
 		[=](const ShaderProgram& shaderProgram, const glm::mat4& worldMatrix, const Camera& camera, bool /*cameraChanged*/)
 		{
 			shaderProgram.SetUniform(worldMatrixLocation, worldMatrix);
 			shaderProgram.SetUniform(viewProjMatrixLocation, camera.GetViewProjectionMatrix());
+			shaderProgram.SetUniform(timeLocation, static_cast<float>(GetTime())); // Pass the time to the shader
 		},
 		m_renderer.GetDefaultUpdateLightsFunction(*waterShaderProgram)
 	);
 
-	m_waterMaterial = std::make_shared<Material>(waterShaderProgram);
-	m_waterMaterial->SetUniformValue("Color", glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+	ShaderUniformCollection::NameSet filteredUniforms;
+	filteredUniforms.insert("WorldMatrix");
+	filteredUniforms.insert("ViewProjMatrix");
+	filteredUniforms.insert("Time");
+
+	m_waterMaterial = std::make_shared<Material>(waterShaderProgram, filteredUniforms);
+
 	m_waterMaterial->SetUniformValue("Opacity", m_waterOpacity);
+	m_waterMaterial->SetUniformValue("TroughColor", m_waterTroughColor);
+	m_waterMaterial->SetUniformValue("SurfaceColor", m_waterSurfaceColor);
+	m_waterMaterial->SetUniformValue("PeakColor", m_waterPeakColor);
+	m_waterMaterial->SetUniformValue("TroughThreshold", m_troughThreshold);
+	m_waterMaterial->SetUniformValue("TroughTransition", m_troughTransition);
+	m_waterMaterial->SetUniformValue("PeakThreshold", m_peakThreshold);
+	m_waterMaterial->SetUniformValue("PeakTransition", m_peakTransition);
+
+	m_waterMaterial->SetUniformValue("WaveAmplitude", m_waveAmplitude);
+	m_waterMaterial->SetUniformValue("WaveFrequency", m_waveFrequency);
+	m_waterMaterial->SetUniformValue("WavePersistence", m_wavePersistence);
+	m_waterMaterial->SetUniformValue("WaveLacunarity", m_waveLacunarity);
+	m_waterMaterial->SetUniformValue("WaveOctaves", m_waveOctaves);
+	m_waterMaterial->SetUniformValue("WaveSpeed", m_waveSpeed);
+
+
 	m_waterMaterial->SetBlendEquation(Material::BlendEquation::Add);
 	//m_waterMaterial->SetBlendParams(Material::BlendParam::SourceAlpha, Material::BlendParam::OneMinusSourceAlpha);
 	m_waterMaterial->SetBlendParams(
@@ -264,13 +305,13 @@ void WaterApplication::InitializeSandMaterial()
 	std::shared_ptr<Texture2DObject> sandTexture = Texture2DLoader::LoadTextureShared(
 		"textures/sandTexture.jpg",
 		TextureObject::FormatRGB,
-		TextureObject::InternalFormatSRGB8, 
+		TextureObject::InternalFormatSRGB8,
 		true,
 		true
 	);
 
 	m_sandMaterial = std::make_shared<Material>(sandShaderProgram);
-	m_sandMaterial->SetUniformValue("Color", glm::vec4(1.0f)); 
+	m_sandMaterial->SetUniformValue("Color", glm::vec4(1.0f));
 	m_sandMaterial->SetUniformValue("ColorTexture", sandTexture);
 	m_sandMaterial->SetUniformValue("ColorTextureScale", glm::vec2(0.01f));
 
@@ -348,14 +389,14 @@ void WaterApplication::InitializeModels()
 	std::shared_ptr<Model> waterModel = std::make_shared<Model>(m_planeMesh);
 
 	std::shared_ptr<Transform> waterTransform = std::make_shared<Transform>();
-	waterTransform->SetScale(glm::vec3(5.0f)); // Make it larger
+	waterTransform->SetScale(glm::vec3(5.0f));
 	waterTransform->SetTranslation(glm::vec3(0.0f, -0.15f, 0.0f)); // Lower it slightly if needed
 	//std::cout << "Water material transparency: " << m_waterMaterial->IsTransparent() << std::endl;
 	waterModel->AddMaterial(m_waterMaterial);
 
 	m_scene.AddSceneNode(std::make_shared<SceneModel>("water plane", waterModel, waterTransform));
 
-	
+
 
 }
 
@@ -451,10 +492,66 @@ void WaterApplication::RenderGUI()
 	{
 		if (ImGui::CollapsingHeader("Water Color"))
 		{
-			if(ImGui::SliderFloat("Water Opacity", &m_waterOpacity, 0.0f, 1.0f))
+			if (ImGui::SliderFloat("Water Opacity", &m_waterOpacity, 0.0f, 1.0f))
 			{
 				m_waterMaterial->SetUniformValue("Opacity", m_waterOpacity);
 			}
+			if (ImGui::ColorEdit3("Water Trough Color", &m_waterTroughColor[0]))
+			{
+				m_waterMaterial->SetUniformValue("DeepColor", m_waterTroughColor);
+			}
+			if (ImGui::ColorEdit3("Water Surface Color", &m_waterSurfaceColor[0]))
+			{
+				m_waterMaterial->SetUniformValue("ShallowColor", m_waterSurfaceColor);
+			}
+			if (ImGui::ColorEdit3("Water Peak Color", &m_waterPeakColor[0]))
+			{
+				m_waterMaterial->SetUniformValue("PeakColor", m_waterPeakColor);
+			}
+			if (ImGui::SliderFloat("Trough Threshold", &m_troughThreshold, 0.0f, 1.0f))
+			{
+				m_waterMaterial->SetUniformValue("TroughThreshold", m_troughThreshold);
+			}
+			if (ImGui::SliderFloat("Trough Transition", &m_troughTransition, 0.0f, 1.0f))
+			{
+				m_waterMaterial->SetUniformValue("TroughTransition", m_troughTransition);
+			}
+			if (ImGui::SliderFloat("Peak Threshold", &m_peakThreshold, 0.0f, 1.0f))
+			{
+				m_waterMaterial->SetUniformValue("PeakThreshold", m_peakThreshold);
+			}
+			if (ImGui::SliderFloat("Peak Transition", &m_peakTransition, 0.0f, 1.0f))
+			{
+				m_waterMaterial->SetUniformValue("PeakTransition", m_peakTransition);
+			}
+		}
+		if (ImGui::CollapsingHeader("Wave Parameters"))
+		{
+			if (ImGui::SliderFloat("Wave Amplitude", &m_waveAmplitude, 0.0f, 1.0f))
+			{
+				m_waterMaterial->SetUniformValue("WaveAmplitude", m_waveAmplitude);
+			}
+			if (ImGui::SliderFloat("Wave Frequency", &m_waveFrequency, 0.0f, 10.0f))
+			{
+				m_waterMaterial->SetUniformValue("WaveFrequency", m_waveFrequency);
+			}
+			if (ImGui::SliderFloat("Wave Persistence", &m_wavePersistence, 0.0f, 1.0f))
+			{
+				m_waterMaterial->SetUniformValue("WavePersistence", m_wavePersistence);
+			}
+			if (ImGui::SliderFloat("Wave Lacunarity", &m_waveLacunarity, 1.0f, 10.0f))
+			{
+				m_waterMaterial->SetUniformValue("WaveLacunarity", m_waveLacunarity);
+			}
+			if (ImGui::SliderInt("Wave Octaves", &m_waveOctaves, 1, 15))
+			{
+				m_waterMaterial->SetUniformValue("WaveOctaves", m_waveOctaves);
+			}
+			if (ImGui::SliderFloat("Wave Speed", &m_waveSpeed, 0.0f, 10.0f))
+			{
+				m_waterMaterial->SetUniformValue("WaveSpeed", m_waveSpeed);
+			}
+
 		}
 	}
 

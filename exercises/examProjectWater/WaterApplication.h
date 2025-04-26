@@ -66,6 +66,25 @@ private:
 
     std::shared_ptr<Mesh> m_planeMesh;
 
+    //uniforms
 	unsigned int m_gridX, m_gridY;
+
     float m_waterOpacity;
+	glm::vec4 m_waterTroughColor;
+	glm::vec4 m_waterSurfaceColor;
+	glm::vec4 m_waterPeakColor;
+
+    float m_troughThreshold;
+    float m_troughTransition;
+	float m_peakThreshold;
+	float m_peakTransition;
+
+
+	float m_waveFrequency;
+    float m_waveAmplitude;
+    float m_waveLacunarity;
+	float m_wavePersistence; 
+	int m_waveOctaves;
+	float m_waveSpeed;
+
 };

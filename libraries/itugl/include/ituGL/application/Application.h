@@ -16,6 +16,8 @@ public:
     // Start the application
     int Run();
 
+    float GetTime() const { return m_currentTime; }
+
 protected:
     // (C++) 1
     // Get the OpenGL device

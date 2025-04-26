@@ -2,6 +2,6 @@
 
 int main()
 {
-    WaterApplication waterApplication(128,128); 
+    WaterApplication waterApplication(512, 512);
     return waterApplication.Run();
 }

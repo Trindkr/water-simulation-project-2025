@@ -21,7 +21,6 @@ Material::Material(std::shared_ptr<ShaderProgram> shaderProgram, const NameSet& 
 {
 }
 
-
 void Material::SetShaderSetupFunction(ShaderSetupFunction shaderSetupFunction)
 {
     m_shaderSetupFunction = shaderSetupFunction;
@@ -53,7 +52,7 @@ void Material::SetStencilTestFunction(TestFunction function, int refValue, unsig
     SetStencilBackTestFunction(function, refValue, mask);
 }
 
-Material::TestFunction Material::GetStencilFrontTestFunction(int &refValue, unsigned int &mask) const
+Material::TestFunction Material::GetStencilFrontTestFunction(int& refValue, unsigned int& mask) const
 {
     refValue = m_stencilRefValues[0];
     mask = m_stencilMasks[0];
