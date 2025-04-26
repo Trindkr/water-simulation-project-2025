@@ -28,29 +28,5 @@ void RendererSceneVisitor::VisitLight(SceneLight& sceneLight)
 void RendererSceneVisitor::VisitModel(SceneModel& sceneModel)
 {
     assert(sceneModel.GetTransform());
-    std::shared_ptr<Model> model = sceneModel.GetModel();
-    glm::mat4 worldMatrix = sceneModel.GetTransform()->GetTransformMatrix();
-
-    bool isTransparent = false;
-
-    for (unsigned int i = 0; i < model->GetMaterialCount(); ++i)
-    {
-        if (model->GetMaterial(i).IsTransparent())
-        {
-            isTransparent = true;
-            break;
-        }
-    }
-    /*std::cout << "Model '" << sceneModel.GetName() << "' is "
-        << (isTransparent ? "transparent" : "opaque") << std::endl;*/
-    std::cout << "Visiting model: " << sceneModel.GetName() << std::endl;
-    int collectionIndex = isTransparent ? 1 : 0;
-    m_renderer.AddModelToCollection(*model, worldMatrix, collectionIndex);
+    m_renderer.AddModel(*sceneModel.GetModel(), sceneModel.GetTransform()->GetTransformMatrix());
 }
-
-
-//void RendererSceneVisitor::VisitModel(SceneModel& sceneModel)
-//{
-//    assert(sceneModel.GetTransform());
-//    m_renderer.AddModel(*sceneModel.GetModel(), sceneModel.GetTransform()->GetTransformMatrix());
-//}

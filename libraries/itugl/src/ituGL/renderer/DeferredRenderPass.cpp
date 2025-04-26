@@ -45,7 +45,8 @@ void DeferredRenderPass::Render()
         // TODO: select different meshes depending on the type
 
         // Set the render states for the first and additional lights
-        renderer.SetLightingRenderStates(false,first);
+        //renderer.SetLightingRenderStates(false,first);
+        renderer.SetLightingRenderStates(first);
 
         renderer.UpdateTransforms(shaderProgram, fullscreenMatrix, first);
         mesh->DrawSubmesh(0);

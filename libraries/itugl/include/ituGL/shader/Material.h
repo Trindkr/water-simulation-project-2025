@@ -40,8 +40,6 @@ public:
     // Initialize with the shader program, will extract all the properties. Skip the names in filtered uniforms
     Material(std::shared_ptr<ShaderProgram> shaderProgram, const NameSet& filteredUniforms = NameSet());
     
-    bool IsTransparent() const;
-
     // The function that will be executed for additional shader program setup
     void SetShaderSetupFunction(ShaderSetupFunction shaderSetupFunction);
 

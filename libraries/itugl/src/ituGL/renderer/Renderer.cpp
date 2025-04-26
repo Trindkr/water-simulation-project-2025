@@ -19,7 +19,7 @@ Renderer::Renderer(DeviceGL& device)
     , m_currentCamera(nullptr)
     , m_defaultFramebuffer(FramebufferObject::GetDefault())
     , m_currentFramebuffer(m_defaultFramebuffer)
-	, m_drawcallCollections(2) // 0: opaque, 1: transparent
+	, m_drawcallCollections(1)
 {
     InitializeFullscreenMesh();
 
@@ -70,19 +70,6 @@ const Mesh& Renderer::GetFullscreenMesh() const
     return m_fullscreenMesh;
 }
 
-//void Renderer::Render()
-//{
-//    assert(m_currentCamera);
-//
-//    for (auto& pass : m_passes)
-//    {
-//        SetCurrentFramebuffer(pass->GetTargetFramebuffer());
-//        pass->Render();
-//    }
-//
-//    Reset();
-//}
-
 void Renderer::Render()
 {
     assert(m_currentCamera);
@@ -93,13 +80,8 @@ void Renderer::Render()
         pass->Render();
     }
 
-    glDisable(GL_BLEND);
-    glDepthFunc(GL_LESS);
-    glDepthMask(GL_TRUE);
-
     Reset();
 }
-
 
 void Renderer::Reset()
 {
@@ -122,23 +104,6 @@ int Renderer::AddRenderPass(std::unique_ptr<RenderPass> renderPass)
     return passIndex;
 }
 
-void Renderer::AddModelToCollection(const Model& model, const glm::mat4& worldMatrix, int collectionIndex)
-{
-    unsigned int worldMatrixIndex = static_cast<unsigned int>(m_worldMatrices.size());
-    m_worldMatrices.push_back(worldMatrix);
-
-    const Mesh& mesh = model.GetMesh();
-    for (unsigned int submeshIndex = 0; submeshIndex < mesh.GetSubmeshCount(); ++submeshIndex)
-    {
-        DrawcallInfo drawcallInfo(model.GetMaterial(submeshIndex), worldMatrixIndex,
-            mesh.GetSubmeshVertexArray(submeshIndex), mesh.GetSubmeshDrawcall(submeshIndex));
-
-        if (collectionIndex < static_cast<int>(m_drawcallCollections.size()))
-        {
-            m_drawcallCollections[collectionIndex].push_back(drawcallInfo);
-        }
-    }
-}
 
 void Renderer::RegisterShaderProgram(std::shared_ptr<const ShaderProgram> shaderProgramPtr,
     const UpdateTransformsFunction& updateTransformFunction,
@@ -268,31 +233,14 @@ void Renderer::PrepareDrawcall(const DrawcallInfo& drawcallInfo)
     drawcallInfo.vao.Bind();
 }
 
-//void Renderer::SetLightingRenderStates(bool firstPass)
-//{
-//    // Set the render states for the first and additional lights
-//    m_device.SetFeatureEnabled(GL_BLEND, !firstPass);
-//    // TODO: This should not be hardcoded here
-//    glDepthFunc(firstPass ? GL_LESS : GL_EQUAL);
-//    glBlendFunc(GL_ONE, GL_ONE);
-//}
-
-void Renderer::SetLightingRenderStates(bool isTransparentPass, bool firstLight)
+void Renderer::SetLightingRenderStates(bool firstPass)
 {
-    if (isTransparentPass)
-    {
-        glDepthFunc(GL_LESS);
-        glDepthMask(GL_FALSE);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        std::cout << "Transparent pass: blending enabled" << std::endl;
-    }
-    else
-    {
-        glDepthFunc(firstLight ? GL_LESS : GL_EQUAL);
-        glDepthMask(firstLight ? GL_TRUE : GL_FALSE);
-        glDisable(GL_BLEND);
-    }
+    // Set the render states for the first and additional lights
+    //m_device.SetFeatureEnabled(GL_BLEND, !firstPass);
+    // TODO: This should not be hardcoded here
+
+    glDepthFunc(firstPass ? GL_LESS : GL_EQUAL);
+    //glBlendFunc(GL_ONE, GL_ONE);
 }
 
 

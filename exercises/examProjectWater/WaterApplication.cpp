@@ -74,10 +74,6 @@ void WaterApplication::Initialize()
 	InitializeModels();
 	InitializeRenderer();
 
-	//Enable depth test
-	GetDevice().EnableFeature(GL_DEPTH_TEST);
-	//GetDevice().EnableFeature(GL_BLEND); 
-	
 	//GetDevice().DisableFeature(GL_CULL_FACE); 
 	//GetDevice().SetWireframeEnabled(true);
 }
@@ -114,6 +110,8 @@ void WaterApplication::Render()
 
 	// Render the scene
 	m_renderer.Render();
+
+	glDepthMask(GL_TRUE); 
 
 	// Render the debug user interface
 	RenderGUI();
@@ -236,7 +234,13 @@ void WaterApplication::InitializeWaterMaterial()
 	m_waterMaterial->SetUniformValue("Color", glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
 	m_waterMaterial->SetUniformValue("Opacity", m_waterOpacity);
 	m_waterMaterial->SetBlendEquation(Material::BlendEquation::Add);
-	m_waterMaterial->SetBlendParams(Material::BlendParam::SourceAlpha, Material::BlendParam::OneMinusSourceAlpha);
+	//m_waterMaterial->SetBlendParams(Material::BlendParam::SourceAlpha, Material::BlendParam::OneMinusSourceAlpha);
+	m_waterMaterial->SetBlendParams(
+		Material::BlendParam::SourceAlpha,           // Source color factor
+		Material::BlendParam::OneMinusSourceAlpha,    // Destination color factor
+		Material::BlendParam::SourceAlpha,            // Source alpha factor
+		Material::BlendParam::OneMinusSourceAlpha     // Destination alpha factor
+	);
 	m_waterMaterial->SetDepthWrite(false);
 }
 
@@ -431,7 +435,7 @@ void WaterApplication::InitializeRenderer()
 {
 	m_renderer.AddRenderPass(std::make_unique<SkyboxRenderPass>(m_skyboxTexture));
 	m_renderer.AddRenderPass(std::make_unique<ForwardRenderPass>(0)); // Opaque
-	m_renderer.AddRenderPass(std::make_unique<ForwardRenderPass>(1)); // Transparent
+	//m_renderer.AddRenderPass(std::make_unique<ForwardRenderPass>(1)); // Transparent
 
 }
 
