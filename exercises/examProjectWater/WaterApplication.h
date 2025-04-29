@@ -79,6 +79,8 @@ private:
 	float m_peakThreshold;
 	float m_peakTransition;
 
+    float m_fresnelStrength;
+	float m_fresnelPower;
 
 	float m_waveFrequency;
     float m_waveAmplitude;

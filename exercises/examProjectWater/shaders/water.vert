@@ -1,4 +1,4 @@
-#version 330 core
+//#version 330 core
 
 layout (location = 0) in vec3 VertexPosition;
 layout (location = 1) in vec3 VertexNormal;
@@ -147,16 +147,19 @@ float snoise(vec4 v){
 }
 
 
-float calculateWaveHeight(vec2 position)
+float calculateWaveHeight(float x, float y)
 {
+    vec2 position = vec2(x, y);
+
     float total = 0.0;
-    float frequency = WaveFrequency;
     float amplitude = 1.0;
+    float frequency = WaveFrequency;
 
     for(int i = 0; i < WaveOctaves; i++)
     {
-        total += amplitude * snoise( frequency * position + WaveSpeed*Time);
+        float noise = snoise( frequency * position + WaveSpeed*Time);
 
+        total += amplitude * noise;
         amplitude *= WavePersistence;
         frequency *= WaveLacunarity;
     }
@@ -164,14 +167,26 @@ float calculateWaveHeight(vec2 position)
     return WaveAmplitude * total;
 }
 
+vec3 calculateNormal(vec3 pos, float height)
+{
+    float eps = 0.001;
+    vec3 tangent = normalize(vec3(eps, calculateWaveHeight(pos.x - eps, pos.z) - height, 0.0));
+    vec3 bitangent = normalize(vec3(0.0, calculateWaveHeight(pos.x, pos.z - eps) - height, eps));
+    vec3 objectNormal = normalize(cross(tangent, bitangent));
+
+   return objectNormal;
+}
+
 void main()
 {
 	WorldPosition = (WorldMatrix * vec4(VertexPosition, 1.0)).xyz;
-	WorldNormal = (WorldMatrix * vec4(VertexNormal, 0.0)).xyz;
+    float height = calculateWaveHeight(WorldPosition.x, WorldPosition.z);
+    WorldPosition.y += height;
+
+	//WorldNormal = (WorldMatrix * vec4(VertexNormal, 0.0)).xyz;
+    WorldNormal = calculateNormal(WorldPosition.xyz, height);
 	TexCoord = VertexTexCoord;
 
-    float height = calculateWaveHeight(WorldPosition.xz);
-    WorldPosition.y += height;
     WaveHeight = height;
 	gl_Position = ViewProjMatrix * vec4(WorldPosition, 1.0);
 }
