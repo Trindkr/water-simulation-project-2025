@@ -354,7 +354,7 @@ void WaterApplication::InitializeMeshes()
 
 void WaterApplication::InitializeModels()
 {
-	m_skyboxTexture = TextureCubemapLoader::LoadTextureShared("models/skybox/skyCubemap.png", TextureObject::FormatRGB, TextureObject::InternalFormatSRGB8);
+	m_skyboxTexture = TextureCubemapLoader::LoadTextureShared("models/skybox/sunsetSkybox.png", TextureObject::FormatRGB, TextureObject::InternalFormatSRGB8);
 
 	m_skyboxTexture->Bind();
 	float maxLod;
@@ -564,7 +564,7 @@ void WaterApplication::RenderGUI()
 		}
 		if (ImGui::CollapsingHeader("Wave Parameters"))
 		{
-			if (ImGui::SliderFloat("Wave Amplitude", &m_waveAmplitude, 0.0f, 0.2f))
+			if (ImGui::SliderFloat("Wave Amplitude", &m_waveAmplitude, 0.0f, 0.5f))
 			{
 				m_waterMaterial->SetUniformValue("WaveAmplitude", m_waveAmplitude);
 			}
