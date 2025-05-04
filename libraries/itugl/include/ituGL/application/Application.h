@@ -16,13 +16,13 @@ public:
     // Start the application
     int Run();
 
-    float GetTime() const { return m_currentTime; }
-
 protected:
     // (C++) 1
     // Get the OpenGL device
     const DeviceGL& GetDevice() const { return m_device; }
     DeviceGL& GetDevice() { return m_device; }
+
+	float GetTime() { return m_currentTime; }
 
     // (C++) 1
     // Get the main window of the application

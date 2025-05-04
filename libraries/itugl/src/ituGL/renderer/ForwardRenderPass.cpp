@@ -4,7 +4,6 @@
 #include <ituGL/shader/Material.h>
 #include <ituGL/geometry/VertexArrayObject.h>
 #include <ituGL/renderer/Renderer.h>
-#include <iostream>
 
 ForwardRenderPass::ForwardRenderPass()
     : ForwardRenderPass(0)
@@ -30,7 +29,7 @@ void ForwardRenderPass::Render()
         // Prepare drawcall states
         renderer.PrepareDrawcall(drawcallInfo);
 
-        std::shared_ptr<const ShaderProgram> shaderProgram = drawcallInfo.material.GetShaderProgram();
+        std::shared_ptr<const ShaderProgram> shaderProgram = drawcallInfo.GetMaterial().GetShaderProgram();
 
         //for all lights
         bool first = true;
@@ -41,41 +40,9 @@ void ForwardRenderPass::Render()
             renderer.SetLightingRenderStates(first);
 
             // Draw
-            drawcallInfo.drawcall.Draw();
+            drawcallInfo.GetDrawcall().Draw();
 
             first = false;
         }
     }
 }
-
-//void ForwardRenderPass::Render()
-//{
-//    Renderer& renderer = GetRenderer();
-//
-//    const Camera& camera = renderer.GetCurrentCamera();
-//    const auto& lights = renderer.GetLights();
-//    const auto& drawcallCollection = renderer.GetDrawcalls(m_drawcallCollectionIndex);
-//
-//    /*std::cout << "ForwardRenderPass (index " << m_drawcallCollectionIndex << ") has "
-//        << drawcallCollection.size() << " drawcalls." << std::endl;*/
-//
-//    // Tell the renderer which kind of pass this is
-//    bool isTransparentPass = (m_drawcallCollectionIndex == 1);
-//
-//    for (const Renderer::DrawcallInfo& drawcallInfo : drawcallCollection)
-//    {
-//        // Prepare drawcall states
-//        renderer.PrepareDrawcall(drawcallInfo);
-//
-//        std::shared_ptr<const ShaderProgram> shaderProgram = drawcallInfo.material.GetShaderProgram();
-//
-//        unsigned int lightIndex = 0;
-//        bool first = true;
-//        while (renderer.UpdateLights(shaderProgram, lights, lightIndex))
-//        {
-//            renderer.SetLightingRenderStates(isTransparentPass, first);
-//            drawcallInfo.drawcall.Draw();
-//            first = false;
-//        }
-//    }
-//}

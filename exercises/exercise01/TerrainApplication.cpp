@@ -45,7 +45,7 @@ Vector3 GetColorFromHeight(float height);
 
 
 TerrainApplication::TerrainApplication()
-    : Application(1024, 1024, "Terrain demo"), m_gridX(500), m_gridY(500), m_shaderProgram(0)
+    : Application(1024, 1024, "Terrain demo"), m_gridX(256), m_gridY(256), m_shaderProgram(0)
 {
 }
 

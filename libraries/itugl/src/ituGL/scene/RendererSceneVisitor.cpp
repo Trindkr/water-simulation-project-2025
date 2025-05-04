@@ -6,10 +6,6 @@
 #include <ituGL/scene/SceneModel.h>
 #include <ituGL/scene/Transform.h>
 
-#include <ituGL/geometry/Model.h>
-#include <ituGL/shader/Material.h>
-#include <iostream>
-
 RendererSceneVisitor::RendererSceneVisitor(Renderer& renderer) : m_renderer(renderer)
 {
 }

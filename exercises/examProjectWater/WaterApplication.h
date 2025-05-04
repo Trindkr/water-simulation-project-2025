@@ -9,7 +9,7 @@
 #include <ituGL/camera/CameraController.h>
 #include <ituGL/utils/DearImGui.h>
 #include <ituGL/shader/Material.h>
-
+#include <ituGL/scene/transform.h>
 
 class TextureCubemapObject;
 class Material;
@@ -47,14 +47,19 @@ private:
     // Camera controller
     CameraController m_cameraController;
 
-    // Global scene
-    Scene m_scene;
+	// Scene for opaque objects
+    Scene m_opaqueScene;
+	// Scene for transparent objects
+    Scene m_transparentScene;
 
     // Renderer
     Renderer m_renderer;
 
     // Skybox texture
     std::shared_ptr<TextureCubemapObject> m_skyboxTexture;
+
+	std::shared_ptr<Transform> m_sandTransform;
+	std::shared_ptr<Transform> m_waterTransform;
 
     // Default material
     std::shared_ptr<Material> m_defaultMaterial;
@@ -74,10 +79,14 @@ private:
 	glm::vec4 m_waterSurfaceColor;
 	glm::vec4 m_waterPeakColor;
 
-    float m_troughThreshold;
-    float m_troughTransition;
-	float m_peakThreshold;
-	float m_peakTransition;
+    float m_troughLevel;
+    float m_troughBlend;
+
+    float m_surfaceLevel;
+    float m_surfaceBlend;
+
+	float m_peakLevel;
+	float m_peakBlend;
 
     float m_fresnelStrength;
 	float m_fresnelPower;
@@ -88,5 +97,8 @@ private:
 	float m_wavePersistence; 
 	int m_waveOctaves;
 	float m_waveSpeed;
+
+	float m_sandBaseHeight;
+	float m_waterBaseHeight;
 
 };

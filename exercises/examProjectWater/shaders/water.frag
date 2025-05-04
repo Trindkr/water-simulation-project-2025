@@ -17,20 +17,34 @@ uniform vec4 SurfaceColor;
 uniform vec4 PeakColor;
 uniform float Opacity;
 
-uniform float TroughThreshold;
-uniform float TroughTransition;
-uniform float PeakThreshold;
-uniform float PeakTransition;
+uniform float TroughLevel;
+uniform float TroughBlend;
 
-vec3 CalculateWaterColor ()
+uniform float SurfaceLevel;
+uniform float SurfaceBlend;
+
+uniform float PeakLevel;
+uniform float PeakBlend;
+
+uniform float SandBaseHeight;
+uniform float WaterBaseHeight;
+
+vec3 CalculateWaterColor(float waveHeight)
 {
-    float troughToSurface = smoothstep(TroughThreshold-TroughTransition,TroughThreshold +TroughTransition, WorldNormal.y);
-    float surfaceToPeak = smoothstep(PeakThreshold-PeakTransition, PeakThreshold + PeakTransition, WorldPosition.y);
+    // Normalize waveHeight to [0,1] assuming expected amplitude range
+    float normalizedHeight = clamp(waveHeight, 0.0, 1.0);
 
-    vec3 mixedColor1 = mix(TroughColor.rgb, SurfaceColor.rgb, troughToSurface);
-    vec3 mixedColor2 = mix(mixedColor1, PeakColor.rgb, surfaceToPeak);
+    // Compute blend factors using smoothstep
+    float troughFactor = 1.0 - smoothstep(TroughLevel - TroughBlend, TroughLevel + TroughBlend, normalizedHeight);
+    float peakFactor = smoothstep(PeakLevel - PeakBlend, PeakLevel + PeakBlend, normalizedHeight);
 
-    return mixedColor2;
+    float surfaceFactor = 1.0 - troughFactor - peakFactor;
+    surfaceFactor = clamp(surfaceFactor, 0.0, 1.0);
+
+    // Blend colors
+    return TroughColor.rgb * troughFactor +
+           SurfaceColor.rgb * surfaceFactor +
+           PeakColor.rgb * peakFactor;
 }
 
 
@@ -39,14 +53,13 @@ void main()
     vec3 vertexNormal = normalize(WorldNormal);
     vec3 viewDirection = normalize(WorldPosition - CameraPosition);
     vec3 reflectDirection = reflect(viewDirection, vertexNormal);
-    reflectDirection.x *= -1.0;
-
+   
     // If you have SampleEnvironment, uncomment this line and comment the fake color
     vec3 reflectionColor = SampleEnvironment(reflectDirection, 1.0);
 
     float fresnel = FresnelStrength * pow(1.0 - clamp(dot(viewDirection, vertexNormal), 0.0, 1.0), FresnelPower);
 
-    vec3 color = CalculateWaterColor();
+    vec3 color = CalculateWaterColor(WaveHeight);
 
     color = mix(color, reflectionColor, fresnel);
 

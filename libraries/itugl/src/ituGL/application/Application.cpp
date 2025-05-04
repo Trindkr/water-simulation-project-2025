@@ -74,7 +74,6 @@ void Application::Initialize()
 {
 }
 
-
 void Application::Update()
 {
     if (m_mainWindow.IsKeyPressed(GLFW_KEY_ESCAPE))

@@ -1,17 +1,50 @@
 #include <ituGL/renderer/Renderer.h>
 
-#include <ituGL/shader/Material.h>
 #include <ituGL/geometry/VertexFormat.h>
 #include <ituGL/geometry/VertexArrayObject.h>
 #include <ituGL/geometry/Drawcall.h>
 #include <ituGL/geometry/Mesh.h>
 #include <ituGL/geometry/Model.h>
 #include <ituGL/lighting/Light.h>
+#include <ituGL/camera/Camera.h>
 #include <ituGL/texture/FramebufferObject.h>
 #include <ituGL/renderer/RenderPass.h>
 #include <span>
 #include <algorithm>
 #include <cassert>
+
+Renderer::DrawcallInfo::DrawcallInfo(const Material& material, unsigned int worldMatrixIndex, const VertexArrayObject& vao, const Drawcall& drawcall)
+    : m_material(material), m_worldMatrixIndex(worldMatrixIndex), m_vao(vao), m_drawcall(drawcall)
+{
+}
+
+Renderer::DrawcallCollection::DrawcallCollection(const DrawcallSupportedFunction& isSupported) : m_isSupported(isSupported)
+{
+}
+
+bool Renderer::DrawcallCollection::IsSupported(const DrawcallInfo& drawcallInfo) const
+{
+    return !m_isSupported || m_isSupported(drawcallInfo);
+}
+
+void Renderer::DrawcallCollection::SetSupportedFunction(const DrawcallSupportedFunction& isSupported)
+{
+    m_isSupported = isSupported;
+}
+
+void Renderer::DrawcallCollection::AddDrawcall(const DrawcallInfo& drawcallInfo)
+{
+    if (IsSupported(drawcallInfo))
+    {
+        m_drawcallInfos.push_back(drawcallInfo);
+    }
+}
+
+void Renderer::DrawcallCollection::Clear()
+{
+    m_drawcallInfos.clear();
+}
+
 
 Renderer::Renderer(DeviceGL& device)
     : m_device(device)
@@ -78,20 +111,20 @@ void Renderer::Render()
         SetCurrentFramebuffer(pass->GetTargetFramebuffer());
         pass->Render();
     }
-    
+
     Reset();
 }
 
 void Renderer::Reset()
 {
+    m_worldMatrices.clear();
     m_lights.clear();
 
     for (auto& collection : m_drawcallCollections)
     {
-        collection.clear();
+        collection.Clear();
     }
 
-    glDepthMask(GL_TRUE);
     m_currentCamera = nullptr;
 }
 
@@ -146,30 +179,30 @@ Renderer::UpdateLightsFunction Renderer::GetDefaultUpdateLightsFunction(const Sh
     ShaderProgram::Location lightAttenuationLocation = shaderProgram.GetUniformLocation("LightAttenuation");
 
     return [=](const ShaderProgram& shaderProgram, std::span<const Light* const> lights, unsigned int& lightIndex) -> bool
+    {
+        bool needsRender = lightIndex == 0;
+
+        shaderProgram.SetUniform(lightIndirectLocation, lightIndex == 0 ? 1 : 0);
+
+        if (lightIndex < lights.size())
         {
-            bool needsRender = lightIndex == 0;
+            const Light& light = *lights[lightIndex];
+            shaderProgram.SetUniform(lightColorLocation, light.GetColor() * light.GetIntensity());
+            shaderProgram.SetUniform(lightPositionLocation, light.GetPosition());
+            shaderProgram.SetUniform(lightDirectionLocation, light.GetDirection());
+            shaderProgram.SetUniform(lightAttenuationLocation, light.GetAttenuation());
+            needsRender = true;
+        }
+        else
+        {
+            // Disable light
+            shaderProgram.SetUniform(lightColorLocation, glm::vec3(0.0f));
+        }
 
-            shaderProgram.SetUniform(lightIndirectLocation, lightIndex == 0 ? 1 : 0);
+        lightIndex++;
 
-            if (lightIndex < lights.size())
-            {
-                const Light& light = *lights[lightIndex];
-                shaderProgram.SetUniform(lightColorLocation, light.GetColor() * light.GetIntensity());
-                shaderProgram.SetUniform(lightPositionLocation, light.GetPosition());
-                shaderProgram.SetUniform(lightDirectionLocation, light.GetDirection());
-                shaderProgram.SetUniform(lightAttenuationLocation, light.GetAttenuation());
-                needsRender = true;
-            }
-            else
-            {
-                // Disable light
-                shaderProgram.SetUniform(lightColorLocation, glm::vec3(0.0f));
-            }
-
-            lightIndex++;
-
-            return needsRender;
-        };
+        return needsRender;
+    };
 }
 
 bool Renderer::UpdateLights(std::shared_ptr<const ShaderProgram> shaderProgramPtr, std::span<const Light* const> lights, unsigned int& lightIndex) const
@@ -194,7 +227,7 @@ void Renderer::AddLight(const Light& light)
 
 std::span<const Renderer::DrawcallInfo> Renderer::GetDrawcalls(unsigned int collectionIndex) const
 {
-    return m_drawcallCollections[collectionIndex];
+    return m_drawcallCollections[collectionIndex].GetDrawcalls();
 }
 
 void Renderer::AddModel(const Model& model, const glm::mat4& worldMatrix)
@@ -210,35 +243,72 @@ void Renderer::AddModel(const Model& model, const glm::mat4& worldMatrix)
 
         for (DrawcallCollection& collection : m_drawcallCollections)
         {
-            collection.push_back(drawcallInfo);
+            collection.AddDrawcall(drawcallInfo);
         }
     }
 }
 
-void Renderer::PrepareDrawcall(const DrawcallInfo& drawcallInfo)
+unsigned int Renderer::AddDrawcallCollection(const DrawcallSupportedFunction& drawcallSupportedFunction)
 {
-    std::shared_ptr<const ShaderProgram> shaderProgram = drawcallInfo.material.GetShaderProgram();
+    unsigned int index = static_cast<unsigned int>(m_drawcallCollections.size());
+    m_drawcallCollections.push_back(DrawcallCollection(drawcallSupportedFunction));
+    return index;
+}
+
+void Renderer::SetDrawcallCollectionSupportedFunction(unsigned int index, const DrawcallSupportedFunction& drawcallSupportedFunction)
+{
+    m_drawcallCollections[index].SetSupportedFunction(drawcallSupportedFunction);
+}
+
+void Renderer::SortDrawcallCollection(unsigned int index, const DrawcallSortFunction& drawcallSortFunction)
+{
+    auto drawcalls = m_drawcallCollections[index].GetDrawcalls();
+    std::sort(drawcalls.begin(), drawcalls.end(), drawcallSortFunction);
+}
+
+bool Renderer::IsBackToFront(const DrawcallInfo& a, const DrawcallInfo& b) const
+{
+    const Camera& camera = GetCurrentCamera();
+    glm::vec3 cameraPosition = camera.ExtractTranslation();
+    glm::vec3 right, up, forward;
+    camera.ExtractVectors(right, up, forward);
+
+    glm::vec3 aDistance = glm::vec3(GetWorldMatrix(a)[3]) - cameraPosition;
+    glm::vec3 bDistance = glm::vec3(GetWorldMatrix(b)[3]) - cameraPosition;
+    return glm::dot(forward, aDistance) < glm::dot(forward, bDistance);
+}
+
+bool Renderer::IsFrontToBack(const DrawcallInfo& a, const DrawcallInfo& b) const
+{
+    return IsBackToFront(b, a);
+}
+
+void Renderer::PrepareDrawcall(const DrawcallInfo& drawcallInfo, Material::OverrideFlags materialOverride)
+{
+    std::shared_ptr<const ShaderProgram> shaderProgram = drawcallInfo.GetMaterial().GetShaderProgram();
 
     // TODO: Room for optimization here, caching current material, current worldMatrixIndex and current VAO
 
     // Setup material
-    drawcallInfo.material.Use();
+    drawcallInfo.GetMaterial().Use(materialOverride);
 
     // Setup world matrix
     // Setup camera
-    UpdateTransforms(shaderProgram, drawcallInfo.worldMatrixIndex);
+    UpdateTransforms(shaderProgram, drawcallInfo.GetWorldMatrixIndex());
 
     // Setup VAO
-    drawcallInfo.vao.Bind();
+    drawcallInfo.GetVAO().Bind();
 }
 
 void Renderer::SetLightingRenderStates(bool firstPass)
 {
     // Set the render states for the first and additional lights
-    //m_device.SetFeatureEnabled(GL_BLEND, !firstPass);
-    // TODO: This should not be hardcoded here
-    glDepthFunc(firstPass ? GL_LESS : GL_EQUAL);
-    //glBlendFunc(GL_ONE, GL_ONE);
+    if (!firstPass)
+    {
+        m_device.SetFeatureEnabled(GL_BLEND, true);
+        glDepthFunc(firstPass ? GL_LESS : GL_EQUAL);
+        glBlendFunc(GL_ONE, GL_ONE);
+    }
 }
 
 void Renderer::InitializeFullscreenMesh()
@@ -252,4 +322,9 @@ void Renderer::InitializeFullscreenMesh()
     fullscreenVertices.emplace_back(3.0f, -1.0f, 0.0f);
     fullscreenVertices.emplace_back(-1.0f, 3.0f, 0.0f);
     m_fullscreenMesh.AddSubmesh<glm::vec3, VertexFormat::LayoutIterator>(Drawcall::Primitive::Triangles, fullscreenVertices, vertexFormat.LayoutBegin(3, false), vertexFormat.LayoutEnd());
+}
+
+const glm::mat4& Renderer::GetWorldMatrix(const DrawcallInfo& drawcallInfo) const
+{
+    return m_worldMatrices[drawcallInfo.GetWorldMatrixIndex()];
 }

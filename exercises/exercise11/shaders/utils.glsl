@@ -1,4 +1,10 @@
 
+// Constant value for PI
+const float Pi = 3.1416f;
+
+// Constant value for 1 / PI
+const float InvPi = 0.31831f;
+
 //
 vec3 GetCameraPosition(mat4 viewMatrix)
 {
@@ -28,7 +34,7 @@ float ClampedDot(vec3 v1, vec3 v2)
 //
 vec3 GetImplicitNormal(vec2 normal)
 {
-	float z = sqrt(max(1.0f - normal.x * normal.x - normal.y * normal.y, 0.0f));
+	float z = sqrt(1.0f - normal.x * normal.x - normal.y * normal.y);
 	return vec3(normal, z);
 }
 
@@ -64,8 +70,6 @@ vec3 ReconstructViewPosition(sampler2D depthTexture, vec2 texCoord, mat4 invProj
 {
 	// Reconstruct the position, using the screen texture coordinates and the depth
 	float depth = texture(depthTexture, texCoord).r;
-	if (depth == 1)
-		discard;
 	vec3 clipPosition = vec3(texCoord, depth) * 2.0f - vec3(1.0f);
 	vec4 viewPosition = invProjMatrix * vec4(clipPosition, 1.0f);
 	return viewPosition.xyz / viewPosition.w;
@@ -87,7 +91,7 @@ vec3 RGBToHSV(vec3 rgb)
 
    float epsilon = 1.0e-10;
 
-   return vec3( abs(q.z + (q.w - q.y) / (6.0 * d + epsilon)), d / (q.x + epsilon), q.x);
+   return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + epsilon)), d / (q.x + epsilon), q.x);
 }
 
 vec3 HSVToRGB( vec3 hsv )
@@ -99,3 +103,11 @@ vec3 HSVToRGB( vec3 hsv )
    return hsv.z * mix( K.xxx, clamp(p - K.xxx, 0, 1), hsv.y );
 }
 
+// Random sequence generator
+uint LCG(inout uint prev)
+{
+    const uint LCG_A = 1664525u;
+    const uint LCG_C = 1013904223u;
+    prev = (LCG_A * prev + LCG_C);
+    return prev & 0x00FFFFFFu;
+}

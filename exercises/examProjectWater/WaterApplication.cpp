@@ -48,21 +48,27 @@ WaterApplication::WaterApplication(unsigned int x, unsigned int y)
 	, m_waterTroughColor(0.0f, 0.1f, 0.3f, 1.0f)  // Deep blue color
 	, m_waterSurfaceColor(0.0f, 0.4f, 0.6f, 1.0f) // Green color
 	, m_waterPeakColor(0.8f, 0.9f, 1.0f, 1.0f) // White color
-	, m_troughThreshold(-0.01f)
-	, m_troughTransition(0.15f)
-	, m_peakThreshold(0.08f)
-	, m_peakTransition(0.05f)
+
+	, m_troughLevel(0.16f)
+	, m_troughBlend(0.3f)
+	, m_surfaceLevel(0.0f)
+	, m_surfaceBlend(0.0f)
+	, m_peakLevel(0.185f)
+	, m_peakBlend(0.12f)
 
 	, m_fresnelPower(0.5f)
 	, m_fresnelStrength(0.8f)
 
 	//Wave parameters
-	, m_waveAmplitude(0.025f)
-	, m_waveFrequency(1.07f)
+	, m_waveAmplitude(0.18f)
+	, m_waveFrequency(0.4f)
 	, m_wavePersistence(0.3f)
 	, m_waveLacunarity(2.18f)
 	, m_waveOctaves(8)
 	, m_waveSpeed(0.5f)
+
+	, m_sandBaseHeight(0.0f)
+	, m_waterBaseHeight(0.8f)
 
 {
 }
@@ -86,16 +92,20 @@ void WaterApplication::Initialize()
 	// Initialize DearImGUI
 	m_imGui.Initialize(GetMainWindow());
 
-	InitializeCamera();
-	InitializeLights();
 	InitializeDefaultMaterial();
 	InitializeWaterMaterial();
 	InitializeSandMaterial();
 	InitializeMeshes();
 	InitializeModels();
+
+	InitializeLights();
+	InitializeCamera();
 	InitializeRenderer();
 
-	//GetDevice().DisableFeature(GL_CULL_FACE); 
+
+	//depth test
+	GetDevice().EnableFeature(GL_DEPTH_TEST);
+
 	//GetDevice().SetWireframeEnabled(true);
 }
 
@@ -117,9 +127,24 @@ void WaterApplication::Update()
 	// Update camera controller
 	m_cameraController.Update(GetMainWindow(), GetDeltaTime());
 
+	if (m_sandTransform)
+	{
+		glm::vec3 sandWorldPos = glm::vec3(m_sandTransform->GetTransformMatrix()[3]);
+		m_sandBaseHeight = sandWorldPos.y;
+		m_waterMaterial->SetUniformValue("SandBaseHeight", m_sandBaseHeight);
+	}
+
+	if (m_waterTransform)
+	{
+		glm::vec3 waterWorldPos = glm::vec3(m_waterTransform->GetTransformMatrix()[3]);
+		m_waterBaseHeight = waterWorldPos.y;
+		m_waterMaterial->SetUniformValue("WaterBaseHeight", m_waterBaseHeight);
+	}
+
 	// Add the scene nodes to the renderer
 	RendererSceneVisitor rendererSceneVisitor(m_renderer);
-	m_scene.AcceptVisitor(rendererSceneVisitor);
+	m_opaqueScene.AcceptVisitor(rendererSceneVisitor);
+	m_transparentScene.AcceptVisitor(rendererSceneVisitor);
 
 }
 
@@ -148,14 +173,14 @@ void WaterApplication::InitializeCamera()
 {
 	// Create the main camera
 	std::shared_ptr<Camera> camera = std::make_shared<Camera>();
-	camera->SetViewMatrix(glm::vec3(-1, 1, 1), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+	camera->SetViewMatrix(glm::vec3(-1, 2, 1), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 	camera->SetPerspectiveProjectionMatrix(1.0f, 1.0f, 0.1f, 100.0f);
 
 	// Create a scene node for the camera
 	std::shared_ptr<SceneCamera> sceneCamera = std::make_shared<SceneCamera>("camera", camera);
 
 	// Add the camera node to the scene
-	m_scene.AddSceneNode(sceneCamera);
+	m_opaqueScene.AddSceneNode(sceneCamera);
 
 	// Set the camera scene node to be controlled by the camera controller
 	m_cameraController.SetCamera(sceneCamera);
@@ -166,8 +191,8 @@ void WaterApplication::InitializeLights()
 	// Create a directional light and add it to the scene
 	std::shared_ptr<DirectionalLight> directionalLight = std::make_shared<DirectionalLight>();
 	directionalLight->SetDirection(glm::vec3(-0.3f, -1.0f, -0.3f)); // It will be normalized inside the function
-	directionalLight->SetIntensity(3.0f);
-	m_scene.AddSceneNode(std::make_shared<SceneLight>("directional light", directionalLight));
+	directionalLight->SetIntensity(1.0f);
+	m_opaqueScene.AddSceneNode(std::make_shared<SceneLight>("directional light", directionalLight));
 
 	// Create a point light and add it to the scene
 	//std::shared_ptr<PointLight> pointLight = std::make_shared<PointLight>();
@@ -258,33 +283,33 @@ void WaterApplication::InitializeWaterMaterial()
 	ShaderProgram::Location timeLocation = waterShaderProgram->GetUniformLocation("Time");
 
 	m_renderer.RegisterShaderProgram(waterShaderProgram,
-		[=](const ShaderProgram& shaderProgram, const glm::mat4& worldMatrix, const Camera& camera, bool /*cameraChanged*/)
+		[=](const ShaderProgram& shaderProgram, const glm::mat4& worldMatrix, const Camera& camera, bool cameraChanged)
 		{
+			if (cameraChanged)
+			{
+				shaderProgram.SetUniform(cameraPositionLocation, camera.ExtractTranslation());
+				shaderProgram.SetUniform(viewProjMatrixLocation, camera.GetViewProjectionMatrix());
+			}
 			shaderProgram.SetUniform(worldMatrixLocation, worldMatrix);
-			shaderProgram.SetUniform(viewProjMatrixLocation, camera.GetViewProjectionMatrix());
 			shaderProgram.SetUniform(timeLocation, static_cast<float>(GetTime())); // Pass the time to the shader
-			shaderProgram.SetUniform(cameraPositionLocation, camera.ExtractTranslation()); 
 		},
 		m_renderer.GetDefaultUpdateLightsFunction(*waterShaderProgram)
 	);
 
-	ShaderUniformCollection::NameSet filteredUniforms;
-	filteredUniforms.insert("WorldMatrix");
-	filteredUniforms.insert("ViewProjMatrix");
-	filteredUniforms.insert("Time");
-	filteredUniforms.insert("CameraPosition");
 
-	m_waterMaterial = std::make_shared<Material>(waterShaderProgram, filteredUniforms);
+	m_waterMaterial = std::make_shared<Material>(waterShaderProgram);
 
 	// Water vertex shader uniforms
 	m_waterMaterial->SetUniformValue("Opacity", m_waterOpacity);
 	m_waterMaterial->SetUniformValue("TroughColor", m_waterTroughColor);
 	m_waterMaterial->SetUniformValue("SurfaceColor", m_waterSurfaceColor);
 	m_waterMaterial->SetUniformValue("PeakColor", m_waterPeakColor);
-	m_waterMaterial->SetUniformValue("TroughThreshold", m_troughThreshold);
-	m_waterMaterial->SetUniformValue("TroughTransition", m_troughTransition);
-	m_waterMaterial->SetUniformValue("PeakThreshold", m_peakThreshold);
-	m_waterMaterial->SetUniformValue("PeakTransition", m_peakTransition);
+	m_waterMaterial->SetUniformValue("TroughLevel", m_troughLevel);
+	m_waterMaterial->SetUniformValue("TroughBlend", m_troughBlend);
+	m_waterMaterial->SetUniformValue("SurfaceLevel", m_surfaceLevel);
+	m_waterMaterial->SetUniformValue("SurfaceBlend", m_surfaceBlend);
+	m_waterMaterial->SetUniformValue("PeakLevel", m_peakLevel);
+	m_waterMaterial->SetUniformValue("PeakBlend", m_peakBlend);
 
 	// Fresnel effect uniforms
 	m_waterMaterial->SetUniformValue("FresnelStrength", m_fresnelStrength);
@@ -298,16 +323,13 @@ void WaterApplication::InitializeWaterMaterial()
 	m_waterMaterial->SetUniformValue("WaveOctaves", m_waveOctaves);
 	m_waterMaterial->SetUniformValue("WaveSpeed", m_waveSpeed);
 
+	m_waterMaterial->SetUniformValue("SandBaseHeight", m_sandBaseHeight);
+	m_waterMaterial->SetUniformValue("WaterBaseHeight", m_waterBaseHeight);
 
 	m_waterMaterial->SetBlendEquation(Material::BlendEquation::Add);
-	//m_waterMaterial->SetBlendParams(Material::BlendParam::SourceAlpha, Material::BlendParam::OneMinusSourceAlpha);
-	m_waterMaterial->SetBlendParams(
-		Material::BlendParam::SourceAlpha,           // Source color factor
-		Material::BlendParam::OneMinusSourceAlpha,    // Destination color factor
-		Material::BlendParam::SourceAlpha,            // Source alpha factor
-		Material::BlendParam::OneMinusSourceAlpha     // Destination alpha factor
-	);
-	m_waterMaterial->SetDepthWrite(false);
+	m_waterMaterial->SetBlendParams(Material::BlendParam::SourceAlpha, Material::BlendParam::OneMinusSourceAlpha);
+	m_waterMaterial->SetBlendEquation(Material::BlendEquation::Add);
+	//m_waterMaterial->SetDepthWrite(false);
 }
 
 void WaterApplication::InitializeSandMaterial()
@@ -394,7 +416,10 @@ void WaterApplication::InitializeModels()
 
 	// Load models
 	std::shared_ptr<Model> chestModel = loader.LoadShared("models/treasure_chest/treasure_chest.obj");
-	m_scene.AddSceneNode(std::make_shared<SceneModel>("treasure chest", chestModel));
+	std::shared_ptr<Transform> chestTransform = std::make_shared<Transform>();
+	chestTransform->SetScale(glm::vec3(1.0f)); // Scale down the model
+	chestTransform->SetTranslation(glm::vec3(0.0f, 2.0f, 0.0f)); // Position it at the origin
+	m_opaqueScene.AddSceneNode(std::make_shared<SceneModel>("treasure chest", chestModel, chestTransform));
 
 	//std::shared_ptr<Model> cameraModel = loader.LoadShared("models/camera/camera.obj");
 	//m_scene.AddSceneNode(std::make_shared<SceneModel>("camera model", cameraModel));
@@ -408,22 +433,22 @@ void WaterApplication::InitializeModels()
 
 	std::shared_ptr<Model> sandModel = std::make_shared<Model>(m_planeMesh);
 
-	std::shared_ptr<Transform> sandTransform = std::make_shared<Transform>();
-	sandTransform->SetScale(glm::vec3(5.0f)); // Make it larger
-	sandTransform->SetTranslation(glm::vec3(0.0f, -1.0f, 0.0f)); // Lower it slightly if needed
+	m_sandTransform = std::make_shared<Transform>();
+	m_sandTransform->SetScale(glm::vec3(5.0f)); // Make it larger
+	m_sandTransform->SetTranslation(glm::vec3(0.0f, m_sandBaseHeight, 0.0f)); // Lower it slightly if needed
 	sandModel->AddMaterial(m_sandMaterial);
 
-	m_scene.AddSceneNode(std::make_shared<SceneModel>("sand plane", sandModel, sandTransform));
+	m_opaqueScene.AddSceneNode(std::make_shared<SceneModel>("sand plane", sandModel, m_sandTransform));
 
 
 	std::shared_ptr<Model> waterModel = std::make_shared<Model>(m_planeMesh);
 
-	std::shared_ptr<Transform> waterTransform = std::make_shared<Transform>();
-	waterTransform->SetScale(glm::vec3(5.0f));
-	waterTransform->SetTranslation(glm::vec3(0.0f, -0.15f, 0.0f)); // Lower it slightly if needed
+	m_waterTransform = std::make_shared<Transform>();
+	m_waterTransform->SetScale(glm::vec3(5.0f));
+	m_waterTransform->SetTranslation(glm::vec3(0.0f, m_waterBaseHeight, 0.0f)); // Lower it slightly if needed
 	waterModel->AddMaterial(m_waterMaterial);
 
-	m_scene.AddSceneNode(std::make_shared<SceneModel>("water plane", waterModel, waterTransform));
+	m_transparentScene.AddSceneNode(std::make_shared<SceneModel>("water plane", waterModel, m_waterTransform));
 
 
 
@@ -501,8 +526,8 @@ void WaterApplication::CreatePlaneMesh(Mesh& mesh, unsigned int gridX, unsigned 
 
 void WaterApplication::InitializeRenderer()
 {
+	m_renderer.AddRenderPass(std::make_unique<ForwardRenderPass>());
 	m_renderer.AddRenderPass(std::make_unique<SkyboxRenderPass>(m_skyboxTexture));
-	m_renderer.AddRenderPass(std::make_unique<ForwardRenderPass>(0));
 
 }
 
@@ -512,7 +537,8 @@ void WaterApplication::RenderGUI()
 
 	// Draw GUI for scene nodes, using the visitor pattern
 	ImGuiSceneVisitor imGuiVisitor(m_imGui, "Scene");
-	m_scene.AcceptVisitor(imGuiVisitor);
+	m_opaqueScene.AcceptVisitor(imGuiVisitor);
+	m_transparentScene.AcceptVisitor(imGuiVisitor);
 
 	// Draw GUI for camera controller
 	m_cameraController.DrawGUI(m_imGui);
@@ -527,32 +553,41 @@ void WaterApplication::RenderGUI()
 			}
 			if (ImGui::ColorEdit3("Water Trough Color", &m_waterTroughColor[0]))
 			{
-				m_waterMaterial->SetUniformValue("DeepColor", m_waterTroughColor);
+				m_waterMaterial->SetUniformValue("TroughColor", m_waterTroughColor);
 			}
 			if (ImGui::ColorEdit3("Water Surface Color", &m_waterSurfaceColor[0]))
 			{
-				m_waterMaterial->SetUniformValue("ShallowColor", m_waterSurfaceColor);
+				m_waterMaterial->SetUniformValue("SurfaceColor", m_waterSurfaceColor);
 			}
 			if (ImGui::ColorEdit3("Water Peak Color", &m_waterPeakColor[0]))
 			{
 				m_waterMaterial->SetUniformValue("PeakColor", m_waterPeakColor);
 			}
-			if (ImGui::SliderFloat("Trough Threshold", &m_troughThreshold, 0.0f, 1.0f))
-			{
-				m_waterMaterial->SetUniformValue("TroughThreshold", m_troughThreshold);
-			}
-			if (ImGui::SliderFloat("Trough Transition", &m_troughTransition, 0.0f, 1.0f))
-			{
-				m_waterMaterial->SetUniformValue("TroughTransition", m_troughTransition);
-			}
-			if (ImGui::SliderFloat("Peak Threshold", &m_peakThreshold, 0.0f, 1.0f))
-			{
-				m_waterMaterial->SetUniformValue("PeakThreshold", m_peakThreshold);
-			}
-			if (ImGui::SliderFloat("Peak Transition", &m_peakTransition, 0.0f, 1.0f))
-			{
-				m_waterMaterial->SetUniformValue("PeakTransition", m_peakTransition);
-			}
+
+			ImGui::Separator();
+
+			if (ImGui::SliderFloat("Trough Level", &m_troughLevel, 0.0f, 1.0f))
+				m_waterMaterial->SetUniformValue("TroughLevel", m_troughLevel);
+
+			if (ImGui::SliderFloat("Surface Level", &m_surfaceLevel, 0.0f, 1.0f))
+				m_waterMaterial->SetUniformValue("SurfaceLevel", m_surfaceLevel);
+
+			if (ImGui::SliderFloat("Peak Level", &m_peakLevel, 0.0f, 1.0f))
+				m_waterMaterial->SetUniformValue("PeakLevel", m_peakLevel);
+
+			ImGui::Separator();
+
+			if (ImGui::SliderFloat("Trough Blend", &m_troughBlend, 0.001f, 0.5f))
+				m_waterMaterial->SetUniformValue("TroughBlend", m_troughBlend);
+
+			if (ImGui::SliderFloat("Surface Blend", &m_surfaceBlend, 0.001f, 0.5f))
+				m_waterMaterial->SetUniformValue("SurfaceBlend", m_surfaceBlend);
+
+			if (ImGui::SliderFloat("Peak Blend", &m_peakBlend, 0.001f, 0.5f))
+				m_waterMaterial->SetUniformValue("PeakBlend", m_peakBlend);
+
+			ImGui::Separator();
+
 			if (ImGui::SliderFloat("Fresnel Power", &m_fresnelPower, 0.0f, 10.0f))
 			{
 				m_waterMaterial->SetUniformValue("FresnelPower", m_fresnelPower);
@@ -562,9 +597,12 @@ void WaterApplication::RenderGUI()
 				m_waterMaterial->SetUniformValue("FresnelStrength", m_fresnelStrength);
 			}
 		}
+
+		ImGui::Separator();
+
 		if (ImGui::CollapsingHeader("Wave Parameters"))
 		{
-			if (ImGui::SliderFloat("Wave Amplitude", &m_waveAmplitude, 0.0f, 0.5f))
+			if (ImGui::SliderFloat("Wave Amplitude", &m_waveAmplitude, 0.0f, 1.0f))
 			{
 				m_waterMaterial->SetUniformValue("WaveAmplitude", m_waveAmplitude);
 			}
@@ -584,6 +622,9 @@ void WaterApplication::RenderGUI()
 			{
 				m_waterMaterial->SetUniformValue("WaveOctaves", m_waveOctaves);
 			}
+
+			ImGui::Separator();
+
 			if (ImGui::SliderFloat("Wave Speed", &m_waveSpeed, 0.0f, 10.0f))
 			{
 				m_waterMaterial->SetUniformValue("WaveSpeed", m_waveSpeed);
