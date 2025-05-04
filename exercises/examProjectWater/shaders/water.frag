@@ -20,9 +20,6 @@ uniform float Opacity;
 uniform float TroughLevel;
 uniform float TroughBlend;
 
-uniform float SurfaceLevel;
-uniform float SurfaceBlend;
-
 uniform float PeakLevel;
 uniform float PeakBlend;
 

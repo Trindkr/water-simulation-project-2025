@@ -51,8 +51,6 @@ WaterApplication::WaterApplication(unsigned int x, unsigned int y)
 
 	, m_troughLevel(0.16f)
 	, m_troughBlend(0.3f)
-	, m_surfaceLevel(0.0f)
-	, m_surfaceBlend(0.0f)
 	, m_peakLevel(0.185f)
 	, m_peakBlend(0.12f)
 
@@ -306,8 +304,6 @@ void WaterApplication::InitializeWaterMaterial()
 	m_waterMaterial->SetUniformValue("PeakColor", m_waterPeakColor);
 	m_waterMaterial->SetUniformValue("TroughLevel", m_troughLevel);
 	m_waterMaterial->SetUniformValue("TroughBlend", m_troughBlend);
-	m_waterMaterial->SetUniformValue("SurfaceLevel", m_surfaceLevel);
-	m_waterMaterial->SetUniformValue("SurfaceBlend", m_surfaceBlend);
 	m_waterMaterial->SetUniformValue("PeakLevel", m_peakLevel);
 	m_waterMaterial->SetUniformValue("PeakBlend", m_peakBlend);
 
@@ -569,9 +565,6 @@ void WaterApplication::RenderGUI()
 			if (ImGui::SliderFloat("Trough Level", &m_troughLevel, 0.0f, 1.0f))
 				m_waterMaterial->SetUniformValue("TroughLevel", m_troughLevel);
 
-			if (ImGui::SliderFloat("Surface Level", &m_surfaceLevel, 0.0f, 1.0f))
-				m_waterMaterial->SetUniformValue("SurfaceLevel", m_surfaceLevel);
-
 			if (ImGui::SliderFloat("Peak Level", &m_peakLevel, 0.0f, 1.0f))
 				m_waterMaterial->SetUniformValue("PeakLevel", m_peakLevel);
 
@@ -579,9 +572,6 @@ void WaterApplication::RenderGUI()
 
 			if (ImGui::SliderFloat("Trough Blend", &m_troughBlend, 0.001f, 0.5f))
 				m_waterMaterial->SetUniformValue("TroughBlend", m_troughBlend);
-
-			if (ImGui::SliderFloat("Surface Blend", &m_surfaceBlend, 0.001f, 0.5f))
-				m_waterMaterial->SetUniformValue("SurfaceBlend", m_surfaceBlend);
 
 			if (ImGui::SliderFloat("Peak Blend", &m_peakBlend, 0.001f, 0.5f))
 				m_waterMaterial->SetUniformValue("PeakBlend", m_peakBlend);

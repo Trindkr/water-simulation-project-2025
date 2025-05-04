@@ -82,9 +82,6 @@ private:
     float m_troughLevel;
     float m_troughBlend;
 
-    float m_surfaceLevel;
-    float m_surfaceBlend;
-
 	float m_peakLevel;
 	float m_peakBlend;
 
