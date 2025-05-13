@@ -119,4 +119,11 @@ private:
 	float m_sandBaseHeight;
 	float m_waterBaseHeight;
 
+    glm::vec3 m_causticsColor;
+    float m_causticsIntensity;
+    float m_causticsOffset;
+    float m_causticsScale;
+    float m_causticsSpeed;
+    float m_causticsThickness;
+
 };

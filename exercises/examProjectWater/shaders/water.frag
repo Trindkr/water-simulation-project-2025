@@ -65,8 +65,8 @@ void main()
 
     vec2 ndc = ((ClipSpace.xy / ClipSpace.w) * 0.5) + 0.5;
     
-    vec2 flippedTextCoord = vec2(1.0 - TexCoord.x, 1.0 - TexCoord.y);
-    vec4 reflectionColor = texture(ReflectionTexture, flippedTextCoord * ndc * ReflectionTextureScale);
+    //vec2 flippedTextCoord = vec2(1.0 - TexCoord.x, 1.0 - TexCoord.y);
+    vec4 reflectionColor = texture(ReflectionTexture, TexCoord * ndc * ReflectionTextureScale);
 
     float fresnel = FresnelStrength * pow(1.0 - clamp(dot(viewDirection, vertexNormal), 0.0, 1.0), FresnelPower);
 

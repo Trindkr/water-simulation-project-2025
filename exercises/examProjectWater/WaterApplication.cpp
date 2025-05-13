@@ -50,7 +50,7 @@ WaterApplication::WaterApplication(unsigned int x, unsigned int y)
 	, m_waterScale(glm::vec3(5.0f, 5.0f, 5.0f))
 
 	// Water parameters
-	, m_waterOpacity(0.6f)
+	, m_waterOpacity(0.85f)
 	, m_waterTroughColor(0.0f, 0.1f, 0.3f, 1.0f)  // Deep blue color
 	, m_waterSurfaceColor(0.0f, 0.4f, 0.6f, 1.0f) // Green color
 	, m_waterPeakColor(0.8f, 0.9f, 1.0f, 1.0f) // White color
@@ -74,6 +74,14 @@ WaterApplication::WaterApplication(unsigned int x, unsigned int y)
 	, m_sandBaseHeight(0.0f)
 	, m_waterBaseHeight(0.8f)
 	, m_clipPlane(glm::vec4(0.0f, 1.0f, 0.0f, -m_waterBaseHeight)) // init clip plane
+
+	//underwater caustics
+	, m_causticsColor(1.0f, 1.0f, 1.0f) // white color
+	, m_causticsIntensity(0.2f)
+	, m_causticsOffset(0.75f)
+	, m_causticsScale(1.0f)
+	, m_causticsSpeed(1.0f)
+	, m_causticsThickness(0.4f)
 
 {
 }
@@ -388,7 +396,10 @@ void WaterApplication::SetOffScreenCamera(Camera& camera, glm::vec3& originalPos
 	originalPosition = camera.ExtractTranslation();
 	originalViewMatrix = camera.GetViewMatrix();
 
-	glm::vec3 waterCenter = glm::vec3(m_waterTransform->GetTransformMatrix()[3]);  
+	glm::vec3 waterTranslation = glm::vec3(m_waterTransform->GetTransformMatrix()[3]);
+
+	// Center of plane in world space
+	glm::vec3 waterCenter = waterTranslation + glm::vec3(0.5f * m_waterScale.x, 0.0f, 0.5f * m_waterScale.z);
 
 	// Compute direction from camera to water plane center
 	glm::vec3 direction = glm::normalize(waterCenter - originalPosition); 
@@ -412,40 +423,7 @@ void WaterApplication::SetOffScreenCamera(Camera& camera, glm::vec3& originalPos
 	// Set the view matrix with the mirrored position and corrected vectors
 	camera.SetViewMatrix(reflectionPosition, reflectionPosition + reflectionDirection, worldUp);
 
-
 }
-
-//void WaterApplication::SetOffScreenCamera(Camera& camera, glm::vec3& originalPosition, glm::mat4& originalViewMatrix)
-//{
-//	// Save the original state so you can restore it later
-//	originalPosition = camera.ExtractTranslation();
-//
-//	// Get current camera forward direction
-//	glm::vec3 right, up, forward;
-//	camera.ExtractVectors(right, up, forward);
-//
-//	// Calculate current look-at point
-//	glm::vec3 lookAt = originalPosition - forward;
-//
-//	glm::vec3 lookAt = reflectedPosition + glm::vec3(0.0f, -1.0f, 0.0f) 
-//
-//	// Mirror position across water plane
-//	glm::vec3 mirroredPosition = originalPosition;
-//	mirroredPosition.y = 2.0f * m_waterBaseHeight - originalPosition.y;
-//
-//	// Mirror look-at across water plane
-//	glm::vec3 mirroredLookAt = lookAt;
-//	mirroredLookAt.y = 2.0f * m_waterBaseHeight - lookAt.y;
-//
-//	// Set reflection camera view matrix
-//	camera.SetViewMatrix(mirroredPosition, mirroredLookAt, glm::vec3(0, 1, 0));
-//
-//	
-//}
-
-
-
-
 
 void WaterApplication::InitializeWaterMaterial()
 {
@@ -545,13 +523,16 @@ void WaterApplication::InitializeSandMaterial()
 
 	ShaderProgram::Location worldMatrixLocation = sandShaderProgram->GetUniformLocation("WorldMatrix");
 	ShaderProgram::Location viewProjMatrixLocation = sandShaderProgram->GetUniformLocation("ViewProjMatrix");
+	ShaderProgram::Location timeLocation = sandShaderProgram->GetUniformLocation("Time");
 
 	m_renderer.RegisterShaderProgram(sandShaderProgram,
 		[=](const ShaderProgram& shaderProgram, const glm::mat4& worldMatrix, const Camera& camera, bool /*cameraChanged*/)
 		{
 			shaderProgram.SetUniform(worldMatrixLocation, worldMatrix);
 			shaderProgram.SetUniform(viewProjMatrixLocation, camera.GetViewProjectionMatrix());
+			shaderProgram.SetUniform(timeLocation, static_cast<float>(GetTime())); // Pass the time to the shader 
 		},
+
 		m_renderer.GetDefaultUpdateLightsFunction(*sandShaderProgram)
 	);
 
@@ -566,8 +547,19 @@ void WaterApplication::InitializeSandMaterial()
 	m_sandMaterial = std::make_shared<Material>(sandShaderProgram);
 	m_sandMaterial->SetUniformValue("Color", glm::vec4(1.0f));
 	m_sandMaterial->SetUniformValue("ColorTexture", sandTexture);
-	m_sandMaterial->SetUniformValue("ColorTextureScale", glm::vec2(0.01f));
+
+	glm::vec2 sandTextureScale(.04f / m_waterScale.x,
+		.04f / m_waterScale.z);
+
+
+	m_sandMaterial->SetUniformValue("ColorTextureScale", sandTextureScale);
 	m_sandMaterial->SetUniformValue("ClipPlane", m_clipPlane);
+	m_sandMaterial->SetUniformValue("CausticsColor", m_causticsColor);
+	m_sandMaterial->SetUniformValue("CausticsIntensity", m_causticsIntensity);
+	m_sandMaterial->SetUniformValue("CausticsOffset", m_causticsOffset);
+	m_sandMaterial->SetUniformValue("CausticsScale", m_causticsScale);
+	m_sandMaterial->SetUniformValue("CausticsSpeed", m_causticsSpeed);
+	m_sandMaterial->SetUniformValue("CausticsThickness", m_causticsThickness);
 
 }
 
@@ -641,7 +633,7 @@ void WaterApplication::InitializeModels()
 	std::shared_ptr<Model> sandModel = std::make_shared<Model>(m_planeMesh);
 
 	m_sandTransform = std::make_shared<Transform>();
-	m_sandTransform->SetScale(glm::vec3(5.0f)); // Make it larger
+	m_sandTransform->SetScale(m_waterScale); // Make it larger
 	m_sandTransform->SetTranslation(glm::vec3(0.0f, m_sandBaseHeight, 0.0f)); // Lower it slightly if needed
 	sandModel->AddMaterial(m_sandMaterial);
 
@@ -753,14 +745,12 @@ void WaterApplication::RenderGUI()
 
 	if (auto window = m_imGui.UseWindow("Debug"))
 	{
-		// 1) bind the offscreen color texture
 		m_offscreenColorTex->Bind();
 
 		// 2) retrieve its GLuint handle
 		GLint texHandle = 0;
 		glGetIntegerv(GL_TEXTURE_BINDING_2D, &texHandle);
 
-		// 3) unbind
 		Texture2DObject::Unbind();
 
 		// 4) cast to ImGui’s ImTextureID and draw
@@ -768,8 +758,8 @@ void WaterApplication::RenderGUI()
 		ImGui::Text("Scene preview:");
 		
 		ImVec2 size(m_offscreenWidth / 2, m_offscreenHeight / 2);
-		ImVec2 uv0(0, 1);  // Top-left
-		ImVec2 uv1(1, 0);  // Bottom-right
+		ImVec2 uv0(0, 1);  // Top left
+		ImVec2 uv1(1, 0);  // Bottom right
 		ImGui::Image(texID, size, uv0, uv1);
 	}
 
@@ -856,6 +846,37 @@ void WaterApplication::RenderGUI()
 			}
 
 		}
+		ImGui::Separator();
+
+		if (ImGui::CollapsingHeader("Light Caustics Parameters"))
+		{
+			if (ImGui::ColorEdit3("Caustics Color", &m_causticsColor[0]))
+			{
+				m_sandMaterial->SetUniformValue("CausticsColor", m_causticsColor);
+			}
+			if (ImGui::SliderFloat("Caustics Intensity", &m_causticsIntensity, 0.0f, 1.0f))
+			{
+				m_sandMaterial->SetUniformValue("CausticsIntensity", m_causticsIntensity);
+			}
+			if (ImGui::SliderFloat("Caustics Offset", &m_causticsOffset, 0.0f, 1.0f))
+			{
+				m_sandMaterial->SetUniformValue("CausticsOffset", m_causticsOffset);
+			}
+			if (ImGui::SliderFloat("Caustics Scale", &m_causticsScale, 0.0f, 5.0f))
+			{
+				m_sandMaterial->SetUniformValue("CausticsScale", m_causticsScale);
+			}
+			if (ImGui::SliderFloat("Caustics Speed", &m_causticsSpeed, 0.0f, 5.0f))
+			{
+				m_sandMaterial->SetUniformValue("CausticsSpeed", m_causticsSpeed);
+			}
+			if (ImGui::SliderFloat("Caustics Thickness", &m_causticsThickness, 0.0f, 1.0f))
+			{
+				m_sandMaterial->SetUniformValue("CausticsThickness", m_causticsThickness);
+			}
+
+		}
+
 	}
 
 	m_imGui.EndFrame();
