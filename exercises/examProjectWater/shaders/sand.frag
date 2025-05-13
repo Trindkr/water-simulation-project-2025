@@ -101,11 +101,11 @@ void main()
     
     float caustics = 0.0;
 
-  // Layer multiple caustic patterns
+    // Layer multiple caustic patterns
     caustics += CausticsIntensity * (CausticsOffset - abs(snoise(vec3(Uv.xy * CausticsScale, Time * CausticsSpeed))));
     caustics += CausticsIntensity * (CausticsOffset - abs(snoise(vec3(Uv.yx * CausticsScale, -Time * CausticsSpeed))));
 
-  // Shape the caustics
+    // Smooth the caustics pattern to create a more natural look
     caustics = smoothstep(0.5 - CausticsThickness, 0.5 + CausticsThickness, caustics);
 
     vec3 finalColor = texColor.rgb + caustics * CausticsColor;

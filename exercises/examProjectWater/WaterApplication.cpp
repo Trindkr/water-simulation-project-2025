@@ -213,9 +213,7 @@ void WaterApplication::Render()
 	GetDevice().DisableFeature(GL_CLIP_DISTANCE0);
 
 	FramebufferObject::Unbind();
-	glViewport(0, 0, /*back to window dims*/
-		width,
-		height);
+	glViewport(0, 0, width, height);
 
 	GetDevice().Clear(true, Color(0.0f, 0.0f, 0.0f, 1.0f), true, 1.0f);
 
@@ -392,36 +390,28 @@ void WaterApplication::InitializeDefaultMaterial()
 
 void WaterApplication::SetOffScreenCamera(Camera& camera, glm::vec3& originalPosition, glm::mat4& originalViewMatrix)
 {
-	// Extract the original position, view matrix, and basis vectors
+	
+	// Save original camera info
 	originalPosition = camera.ExtractTranslation();
 	originalViewMatrix = camera.GetViewMatrix();
 
-	glm::vec3 waterTranslation = glm::vec3(m_waterTransform->GetTransformMatrix()[3]);
-
-	// Center of plane in world space
-	glm::vec3 waterCenter = waterTranslation + glm::vec3(0.5f * m_waterScale.x, 0.0f, 0.5f * m_waterScale.z);
-
-	// Compute direction from camera to water plane center
-	glm::vec3 direction = glm::normalize(waterCenter - originalPosition); 
-
-	glm::vec3 right, up, forward;
-	camera.ExtractVectors(right, up, forward);
-
+	// Mirror camera position over water plane
 	glm::vec3 reflectionPosition = originalPosition;
 	reflectionPosition.y = 2.0f * m_waterBaseHeight - originalPosition.y;
 
-	glm::vec3 reflectionDirection = direction;
-	reflectionDirection.y = -reflectionDirection.y; 
-	
+	// Get water center
+	glm::vec3 waterTranslation = glm::vec3(m_waterTransform->GetTransformMatrix()[3]);
+	glm::vec3 waterCenter = waterTranslation + glm::vec3(0.5f * m_waterScale.x, 0.0f, 0.5f * m_waterScale.z);
 
-	glm::vec3 reflectionForward = forward;
-	reflectionForward.y = -reflectionForward.y;
+	// Calculate camera to  water center vector
+	glm::vec3 directionToCenter = glm::normalize(waterCenter - originalPosition);
 
-	// Keep up fixed to world up
-	glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
+	// Reflect the direction over the water plane
+	glm::vec3 reflectedDirection = directionToCenter;
+	reflectedDirection.y = -directionToCenter.y;
 
-	// Set the view matrix with the mirrored position and corrected vectors
-	camera.SetViewMatrix(reflectionPosition, reflectionPosition + reflectionDirection, worldUp);
+	// Set reflection camera to look in the mirrored direction
+	camera.SetViewMatrix(reflectionPosition, reflectionPosition + reflectedDirection, glm::vec3(0, 1, 0));
 
 }
 

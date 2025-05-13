@@ -53,8 +53,6 @@ float snoise(vec2 v){
   return 130.0 * dot(m, g);
 }
 
-
-
 float calculateWaveHeight(float x, float y)
 {
     vec2 position = vec2(x, y);
@@ -91,8 +89,6 @@ void main()
 
     float height = calculateWaveHeight(WorldPosition.x, WorldPosition.z);
     WorldPosition.y += height;
-
-	//WorldNormal = (WorldMatrix * vec4(VertexNormal, 0.0)).xyz;
     WorldNormal = calculateNormal(WorldPosition.xyz, height);
 	TexCoord = VertexTexCoord;
     ClipSpaceCoord = ViewProjMatrix * vec4(WorldPosition, 1.0);
