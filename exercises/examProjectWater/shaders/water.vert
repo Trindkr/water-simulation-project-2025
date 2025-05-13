@@ -8,6 +8,7 @@ out vec3 WorldPosition;
 out vec3 WorldNormal;
 out vec2 TexCoord;
 out float WaveHeight;
+out vec4 ClipSpaceCoord;
 
 uniform mat4 WorldMatrix;
 uniform mat4 ViewProjMatrix;
@@ -180,13 +181,15 @@ vec3 calculateNormal(vec3 pos, float height)
 void main()
 {
 	WorldPosition = (WorldMatrix * vec4(VertexPosition, 1.0)).xyz;
+
     float height = calculateWaveHeight(WorldPosition.x, WorldPosition.z);
     WorldPosition.y += height;
 
 	//WorldNormal = (WorldMatrix * vec4(VertexNormal, 0.0)).xyz;
     WorldNormal = calculateNormal(WorldPosition.xyz, height);
 	TexCoord = VertexTexCoord;
+    ClipSpaceCoord = ViewProjMatrix * vec4(WorldPosition, 1.0);
 
     WaveHeight = height;
-	gl_Position = ViewProjMatrix * vec4(WorldPosition, 1.0);
+	gl_Position = ClipSpaceCoord;
 }

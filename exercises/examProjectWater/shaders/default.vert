@@ -15,11 +15,14 @@ out vec2 TexCoord;
 //Uniforms
 uniform mat4 WorldMatrix;
 uniform mat4 ViewProjMatrix;
+uniform vec4 ClipPlane;        // (A,B,C,D) in world space
 
 void main()
 {
+	vec4 worldPos   = WorldMatrix * vec4(VertexPosition,1.0);
+	gl_ClipDistance[0] = dot(worldPos, ClipPlane);
 	// vertex position in world space (for lighting computation)
-	WorldPosition = (WorldMatrix * vec4(VertexPosition, 1.0)).xyz;
+	WorldPosition = worldPos.xyz;
 
 	// normal in world space (for lighting computation)
 	WorldNormal = (WorldMatrix * vec4(VertexNormal, 0.0)).xyz;

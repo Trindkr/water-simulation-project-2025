@@ -4,6 +4,7 @@ in vec3 WorldPosition;
 in vec3 WorldNormal;
 in vec2 TexCoord;
 in float WaveHeight;
+in vec4 ClipSpace;
 
 out vec4 FragColor;
 
@@ -25,6 +26,9 @@ uniform float PeakBlend;
 
 uniform float SandBaseHeight;
 uniform float WaterBaseHeight;
+
+uniform sampler2D ReflectionTexture;
+uniform vec2 ReflectionTextureScale;
 
 vec3 CalculateWaterColor(float waveHeight)
 {
@@ -52,13 +56,26 @@ void main()
     vec3 reflectDirection = reflect(viewDirection, vertexNormal);
    
     // If you have SampleEnvironment, uncomment this line and comment the fake color
-    vec3 reflectionColor = SampleEnvironment(reflectDirection, 1.0);
+    //vec3 cubeReflectionColor = SampleEnvironment(reflectDirection, 1.0);
+
+    //vec2 ndc = (ClipSpace.xy / ClipSpace.w) / 2.0 + 0.5;
+    //vec2 reflectionTextureCoords = vec2(ndc.x, 1.0 - ndc.y);
+    //vec4 reflectionColor = texture(ReflectionTexture, TexCoord * reflectionTextureCoords * ReflectionTextureScale);
+
+
+    vec2 ndc = ((ClipSpace.xy / ClipSpace.w) * 0.5) + 0.5;
+    
+    vec2 flippedTextCoord = vec2(1.0 - TexCoord.x, 1.0 - TexCoord.y);
+    vec4 reflectionColor = texture(ReflectionTexture, flippedTextCoord * ndc * ReflectionTextureScale);
 
     float fresnel = FresnelStrength * pow(1.0 - clamp(dot(viewDirection, vertexNormal), 0.0, 1.0), FresnelPower);
 
     vec3 color = CalculateWaterColor(WaveHeight);
 
-    color = mix(color, reflectionColor, fresnel);
+    color = mix(color, reflectionColor.xyz, fresnel);
+    //color = mix(color, cubeReflectionColor.xyz, fresnel);
+
+    //FragColor = vec4(reflectionColor.rgb, 1.0);
 
     FragColor = vec4(color, Opacity);
 }

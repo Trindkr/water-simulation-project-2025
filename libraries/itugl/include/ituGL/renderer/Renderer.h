@@ -112,9 +112,10 @@ public:
     void SetLightingRenderStates(bool firstPass);
 
     void Render();
+    void Reset();
 
 private:
-    void Reset();
+    
 
     void InitializeFullscreenMesh();
 

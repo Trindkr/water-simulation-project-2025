@@ -10,10 +10,15 @@ out vec2 TexCoord;
 
 uniform mat4 WorldMatrix;
 uniform mat4 ViewProjMatrix;
+uniform vec4 ClipPlane;        // (A,B,C,D) in world space
 
 void main()
 {
-	WorldPosition = (WorldMatrix * vec4(VertexPosition, 1.0)).xyz;
+	vec4 worldPos   = WorldMatrix * vec4(VertexPosition,1.0);
+	gl_ClipDistance[0] = dot(worldPos, ClipPlane);
+
+	WorldPosition = worldPos.xyz;
+
 	WorldNormal = (WorldMatrix * vec4(VertexNormal, 0.0)).xyz;
 	TexCoord = VertexTexCoord;
 	gl_Position = ViewProjMatrix * vec4(WorldPosition, 1.0);
