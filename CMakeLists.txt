@@ -55,4 +55,4 @@ include_directories(
 )
 
 add_subdirectory(${CMAKE_SOURCE_DIR}/libraries)
-add_subdirectory(${CMAKE_SOURCE_DIR}/exercises)
+add_subdirectory(${CMAKE_SOURCE_DIR}/exam)
