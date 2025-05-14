@@ -30,7 +30,7 @@
 #include <ituGL/scene/ImGuiSceneVisitor.h>
 #include <imgui.h>
 
-#include <glm/gtx/transform.hpp>  // for matrix transformations
+#include <glm/gtx/transform.hpp>  
 
 #include <numbers>
 #define STB_PERLIN_IMPLEMENTATION
@@ -60,6 +60,7 @@ WaterApplication::WaterApplication(unsigned int x, unsigned int y)
 	, m_peakLevel(0.185f)
 	, m_peakBlend(0.12f)
 
+	// Fresnel effect 
 	, m_fresnelPower(3.5f)
 	, m_fresnelStrength(0.8f)
 
@@ -71,10 +72,6 @@ WaterApplication::WaterApplication(unsigned int x, unsigned int y)
 	, m_waveOctaves(8)
 	, m_waveSpeed(0.5f)
 
-	, m_sandBaseHeight(-1.0f)
-	, m_waterBaseHeight(2.0f)
-	, m_clipPlane(glm::vec4(0.0f, 1.0f, 0.0f, -m_waterBaseHeight)) // init clip plane
-
 	//underwater caustics
 	, m_causticsColor(1.0f, 1.0f, 1.0f) // white color
 	, m_causticsIntensity(0.2f)
@@ -82,6 +79,11 @@ WaterApplication::WaterApplication(unsigned int x, unsigned int y)
 	, m_causticsScale(1.0f)
 	, m_causticsSpeed(1.0f)
 	, m_causticsThickness(0.4f)
+
+	// clip plane
+	, m_sandBaseHeight(-1.0f)
+	, m_waterBaseHeight(2.0f)
+	, m_clipPlane(glm::vec4(0.0f, 1.0f, 0.0f, -m_waterBaseHeight))
 
 {
 }
@@ -756,10 +758,10 @@ void WaterApplication::RenderGUI()
 
 			ImGui::Separator();
 
-			if (ImGui::SliderFloat("Trough Level", &m_troughLevel, 0.0f, 1.0f))
+			if (ImGui::SliderFloat("Trough Level", &m_troughLevel, 0.001f, 1.0f))
 				m_waterMaterial->SetUniformValue("TroughLevel", m_troughLevel);
 
-			if (ImGui::SliderFloat("Peak Level", &m_peakLevel, 0.0f, 1.0f))
+			if (ImGui::SliderFloat("Peak Level", &m_peakLevel, 0.001f, 1.0f))
 				m_waterMaterial->SetUniformValue("PeakLevel", m_peakLevel);
 
 			ImGui::Separator();
@@ -796,7 +798,7 @@ void WaterApplication::RenderGUI()
 			{
 				m_waterMaterial->SetUniformValue("WaveAmplitude", m_waveAmplitude);
 			}
-			if (ImGui::SliderFloat("Wave Frequency", &m_waveFrequency, 0.1f, 10.0f))
+			if (ImGui::SliderFloat("Wave Frequency", &m_waveFrequency, 0.1f, 2.0f))
 			{
 				m_waterMaterial->SetUniformValue("WaveFrequency", m_waveFrequency);
 			}

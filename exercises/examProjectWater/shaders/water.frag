@@ -24,9 +24,6 @@ uniform float TroughBlend;
 uniform float PeakLevel;
 uniform float PeakBlend;
 
-uniform float SandBaseHeight;
-uniform float WaterBaseHeight;
-
 uniform sampler2D ReflectionTexture;
 
 uniform float WaveFrequency;
@@ -36,7 +33,7 @@ uniform float Time;
 
 
 // Simplex 2D noise
-//
+// Source: https://gist.github.com/patriciogonzalezvivo/670c22f3966e662d2f83
 vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
 
 float snoise(vec2 v){
@@ -68,7 +65,7 @@ float snoise(vec2 v){
 
 vec3 CalculateWaterColor(float waveHeight)
 {
-    // Normalize waveHeight to [0,1] assuming expected amplitude range
+    // Normalize waveHeight to 0,1 range
     float normalizedHeight = clamp(waveHeight, 0.0, 1.0);
 
     // Compute blend factors using smoothstep
@@ -115,11 +112,9 @@ void main()
 
     vec3 color = CalculateWaterColor(WaveHeight);
 
+    // Blend reflection color with water color
     color = mix(color, reflectionColor.xyz, fresnel);
-    //color = mix(color, cubeReflectionColor.xyz, fresnel);
-
-    //FragColor = vec4(reflectionColor.rgb, 1.0);
-
+    
     FragColor = vec4(color, Opacity);
 }
 

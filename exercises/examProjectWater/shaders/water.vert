@@ -23,7 +23,7 @@ uniform float Time;
 
 
 // Simplex 2D noise
-//
+// Source: https://gist.github.com/patriciogonzalezvivo/670c22f3966e662d2f83
 vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
 
 float snoise(vec2 v){
@@ -57,7 +57,8 @@ float calculateWaveHeight(float x, float y)
 {
     vec2 position = vec2(x, y);
 
-    float total = 0.0;
+    // increases with octaves/layers
+    float total = 0.0; 
     float amplitude = 1.0;
     float frequency = WaveFrequency;
 
@@ -75,21 +76,26 @@ float calculateWaveHeight(float x, float y)
 
 vec3 calculateNormal(vec3 pos, float height)
 {
+    // calculate world normal by calculating the tangent and bit tangent to a given point, and then finding the cross product (normal)
     float eps = 0.001;
     vec3 tangent = normalize(vec3(eps, calculateWaveHeight(pos.x - eps, pos.z) - height, 0.0));
     vec3 bitangent = normalize(vec3(0.0, calculateWaveHeight(pos.x, pos.z - eps) - height, eps));
-    vec3 objectNormal = normalize(cross(tangent, bitangent));
+    vec3 normal = normalize(cross(tangent, bitangent));
 
-   return objectNormal;
+   return normal;
 }
 
 void main()
 {
 	WorldPosition = (WorldMatrix * vec4(VertexPosition, 1.0)).xyz;
 
+    //get height value
     float height = calculateWaveHeight(WorldPosition.x, WorldPosition.z);
     WorldPosition.y += height;
+
+    // calculate normal
     WorldNormal = calculateNormal(WorldPosition.xyz, height);
+
 	TexCoord = VertexTexCoord;
     WaveHeight = height;
     ClipSpace = ViewProjMatrix * vec4(WorldPosition, 1.0);
