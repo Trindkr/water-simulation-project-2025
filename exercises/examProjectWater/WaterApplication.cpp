@@ -50,10 +50,10 @@ WaterApplication::WaterApplication(unsigned int x, unsigned int y)
 	, m_waterScale(glm::vec3(20.0f, 1.0f, 20.0f))
 
 	// Water parameters
-	, m_waterOpacity(0.85f)
-	, m_waterTroughColor(0.0f, 0.1f, 0.3f, 1.0f)  // Deep blue color
-	, m_waterSurfaceColor(0.0f, 0.4f, 0.6f, 1.0f) // Green color
-	, m_waterPeakColor(0.8f, 0.9f, 1.0f, 1.0f) // White color
+    , m_waterTroughColor(0.0f, 0.3f, 0.4f, 1.0f)  // Tropical deep blue green color  
+    , m_waterSurfaceColor(0.0f, 0.6f, 0.5f, 1.0f) // Tropical vibrant blue green color  
+    , m_waterPeakColor(0.7f, 0.9f, 0.8f, 1.0f)    // Tropical light blue green color
+	, m_waterOpacity(0.8f)
 
 	, m_troughLevel(0.16f)
 	, m_troughBlend(0.3f)
@@ -71,8 +71,8 @@ WaterApplication::WaterApplication(unsigned int x, unsigned int y)
 	, m_waveOctaves(8)
 	, m_waveSpeed(0.5f)
 
-	, m_sandBaseHeight(0.0f)
-	, m_waterBaseHeight(0.8f)
+	, m_sandBaseHeight(-1.0f)
+	, m_waterBaseHeight(2.0f)
 	, m_clipPlane(glm::vec4(0.0f, 1.0f, 0.0f, -m_waterBaseHeight)) // init clip plane
 
 	//underwater caustics
@@ -86,6 +86,7 @@ WaterApplication::WaterApplication(unsigned int x, unsigned int y)
 {
 }
 
+// Helper function to ensure the offscreen buffer dimensions are a power of two
 unsigned int NextPowerOfTwo(unsigned int x)
 {
 	if (x == 0) return 1;
@@ -98,10 +99,6 @@ unsigned int NextPowerOfTwo(unsigned int x)
 	return ++x;
 }
 
-float PerlinHeight(float x, float y)
-{
-	return stb_perlin_fbm_noise3(x * 2, y * 2, 0.0f, 1.9f, 0.5f, 8) * 0.5f;
-}
 
 void WaterApplication::Initialize()
 {
@@ -175,54 +172,48 @@ void WaterApplication::Render()
 	m_offscreenFBO->Bind();
 	GetDevice().Clear(true, Color(0.0f, 0.0f, 0.0f, 1.0f), true, 1.0f);
 
+	// enable clip distance for the reflection pass
 	GetDevice().EnableFeature(GL_CLIP_DISTANCE0);
 
 	glViewport(0, 0, m_offscreenWidth, m_offscreenHeight);
 
-	m_renderer.Reset(); // clear old camera, lights, drawcalls  
-
-	// Check if the current camera is null  
+	m_renderer.Reset(); 
 	RendererSceneVisitor offVis(m_renderer);
-
 	m_opaqueScene.AcceptVisitor(offVis);
 
 	// Get the current camera
 	std::shared_ptr<SceneCamera> sceneCamera = m_cameraController.GetCamera();
 	Camera& camera = *sceneCamera->GetCamera();
 
+	// copy the camera to a new one to modify it for the reflection pass
 	std::shared_ptr<Camera> reflectionCam = std::make_shared<Camera>(camera); 
 
+	// Set the reflection cam
 	m_renderer.SetCurrentCamera(*reflectionCam);
-
-	// Variables to store the original camera state
 	glm::vec3 originalPosition;
-	glm::mat4 originalViewMatrix;
 
-	// Offset the camera for the first render pass
-	SetOffScreenCamera(*reflectionCam, originalPosition, originalViewMatrix);
+	// this flips the camera so it becomes mirrored across the water plane, by offseting the height and inverting the pitch
+	SetOffScreenCamera(*reflectionCam, originalPosition);
+
+	// first render pass for the offscreen framebuffer
+	m_renderer.Render();
 
 
-	m_renderer.Render(); // now it will draw opaque into offscreen FBO  
-
-	//camera.SetViewMatrix(originalViewMatrix);   //reset 
 	m_renderer.SetCurrentCamera(camera); // reset to original camera
 
-	int width, height;
-	GetMainWindow().GetDimensions(width, height);
-
 	GetDevice().DisableFeature(GL_CLIP_DISTANCE0);
-
 	FramebufferObject::Unbind();
-	glViewport(0, 0, width, height);
+	glViewport(0, 0, m_width, m_height);
 
 	GetDevice().Clear(true, Color(0.0f, 0.0f, 0.0f, 1.0f), true, 1.0f);
 
-	m_renderer.Reset(); // clear again  
+	m_renderer.Reset(); 
 	RendererSceneVisitor onVis(m_renderer);
 	m_opaqueScene.AcceptVisitor(onVis);
 	m_transparentScene.AcceptVisitor(onVis);
 
-	m_renderer.Render(); // rerender scene for on screen framebuffer
+	// rerender scene for on screen framebuffer
+	m_renderer.Render(); 
 
 	// Render the debug user interface  
 	RenderGUI();
@@ -236,68 +227,6 @@ void WaterApplication::Cleanup()
 	Application::Cleanup();
 }
 
-void WaterApplication::SetupOffScreenBuffer()
-{
-	int winW, winH;
-	GetMainWindow().GetDimensions(winW, winH);
-	m_offscreenWidth = winW / 2; // lower res for offscreen rendering 
-	m_offscreenHeight = winW / 2;
-
-	m_offscreenWidth = NextPowerOfTwo(m_offscreenWidth);
-	m_offscreenHeight = NextPowerOfTwo(m_offscreenHeight);
-
-
-	// 2) color texture
-	m_offscreenColorTex = std::make_shared<Texture2DObject>();
-	m_offscreenColorTex->Bind();
-
-	m_offscreenColorTex->SetParameter(TextureObject::ParameterEnum::MinFilter, GL_LINEAR);
-	m_offscreenColorTex->SetParameter(TextureObject::ParameterEnum::MagFilter, GL_LINEAR);
-
-	m_offscreenColorTex->SetImage(
-			0,
-			m_offscreenWidth,
-			m_offscreenHeight,
-			TextureObject::Format::FormatRGBA,
-			TextureObject::InternalFormat::InternalFormatRGBA8);
-
-	Texture2DObject::Unbind();
-
-	// 3) depth texture
-	m_offscreenDepthTex = std::make_shared<Texture2DObject>();
-	m_offscreenDepthTex->Bind();
-
-	m_offscreenDepthTex->SetImage(
-			0,
-			m_offscreenWidth,
-			m_offscreenHeight,
-			TextureObject::Format::FormatDepth,
-			TextureObject::InternalFormat::InternalFormatDepth24);
-
-	Texture2DObject::Unbind();
-
-	// 4) make the FBO and attach
-	m_offscreenFBO = std::make_shared<FramebufferObject>();
-	m_offscreenFBO->Bind();
-
-	// attach color
-	m_offscreenFBO->SetTexture(
-		FramebufferObject::Target::Both,
-		FramebufferObject::Attachment::Color0,
-		*m_offscreenColorTex, 0);
-
-	// attach depth
-	m_offscreenFBO->SetTexture(
-		FramebufferObject::Target::Both,
-		FramebufferObject::Attachment::Depth,
-		*m_offscreenDepthTex, 0);
-
-	// set the draw buffers
-	std::array<FramebufferObject::Attachment, 1> drawBuffers = { FramebufferObject::Attachment::Color0 };
-	m_offscreenFBO->SetDrawBuffers(drawBuffers);
-
-	FramebufferObject::Unbind();
-}
 
 void WaterApplication::InitializeCamera()
 {
@@ -388,31 +317,6 @@ void WaterApplication::InitializeDefaultMaterial()
 
 }
 
-void WaterApplication::SetOffScreenCamera(Camera& camera, glm::vec3& originalPosition, glm::mat4& originalViewMatrix)
-{
-	
-	// Save original camera info
-	originalPosition = camera.ExtractTranslation();
-	originalViewMatrix = camera.GetViewMatrix();
-
-	// Mirror camera position over water plane
-	glm::vec3 reflectionPosition = originalPosition;
-	reflectionPosition.y = 2.0f * m_waterBaseHeight - originalPosition.y;
-
-	glm::vec3 up, forward, right;
-	camera.ExtractVectors(right, up, forward);
-
-
-	forward.y = -forward.y; 
-
-	up = glm::normalize(glm::cross(right, forward));  
-
-	
-	// Set reflection camera to look in the mirrored direction
-	camera.SetViewMatrix(reflectionPosition, reflectionPosition - forward, up);
-
-}
-
 void WaterApplication::InitializeWaterMaterial()
 {
 
@@ -431,14 +335,8 @@ void WaterApplication::InitializeWaterMaterial()
 
 	Shader waterFS = ShaderLoader(Shader::FragmentShader).Load(fragmentShaderPaths);
 
-	//Shader waterVS = m_vertexShaderLoader.Load("shaders/water.vert");
-	//Shader waterFS = m_fragmentShaderLoader.Load("shaders/water.frag");
 	std::shared_ptr<ShaderProgram> waterShaderProgram = std::make_shared<ShaderProgram>();
 	waterShaderProgram->Build(waterVS, waterFS);
-
-	waterShaderProgram->Use();
-	GLint locRefl = waterShaderProgram->GetUniformLocation("ReflectionTexture");
-	glUniform1i(locRefl, REFLECTION_TEX_UNIT);
 
 
 	ShaderProgram::Location cameraPositionLocation = waterShaderProgram->GetUniformLocation("CameraPosition");
@@ -533,7 +431,6 @@ void WaterApplication::InitializeSandMaterial()
 	glm::vec2 sandTextureScale(1.0f / m_waterScale.x,
 		1.0f / m_waterScale.z);
 
-
 	m_sandMaterial->SetUniformValue("ColorTextureScale", sandTextureScale);
 	m_sandMaterial->SetUniformValue("ClipPlane", m_clipPlane);
 	m_sandMaterial->SetUniformValue("CausticsColor", m_causticsColor);
@@ -545,7 +442,6 @@ void WaterApplication::InitializeSandMaterial()
 
 }
 
-
 void WaterApplication::InitializeMeshes()
 {
 	m_planeMesh = std::make_shared<Mesh>();
@@ -553,9 +449,11 @@ void WaterApplication::InitializeMeshes()
 	std::cout << "Water mesh submeshes: " << m_planeMesh->GetSubmeshCount() << std::endl;
 }
 
+
 void WaterApplication::InitializeModels()
 {
-	m_skyboxTexture = TextureCubemapLoader::LoadTextureShared("models/skybox/skymirror.png", TextureObject::FormatRGB, TextureObject::InternalFormatSRGB8);
+	// Set skybox texture
+	m_skyboxTexture = TextureCubemapLoader::LoadTextureShared("models/skybox/sunsetSkybox.png", TextureObject::FormatRGB, TextureObject::InternalFormatSRGB8);
 
 	m_skyboxTexture->Bind();
 	float maxLod;
@@ -567,9 +465,6 @@ void WaterApplication::InitializeModels()
 	m_defaultMaterial->SetUniformValue("EnvironmentTexture", m_skyboxTexture);
 	m_defaultMaterial->SetUniformValue("EnvironmentMaxLod", maxLod);
 	m_defaultMaterial->SetUniformValue("Color", glm::vec3(1.0f));
-
-	//m_waterMaterial->SetUniformValue("EnvironmentTexture", m_skyboxTexture);
-	//m_waterMaterial->SetUniformValue("EnvironmentMaxLod", maxLod);
 
 	// Configure loader
 	ModelLoader loader(m_defaultMaterial);
@@ -593,47 +488,149 @@ void WaterApplication::InitializeModels()
 	loader.SetMaterialProperty(ModelLoader::MaterialProperty::NormalTexture, "NormalTexture");
 	loader.SetMaterialProperty(ModelLoader::MaterialProperty::SpecularTexture, "SpecularTexture");
 
-	// Load models
+	// Load opaque models
+	float height = m_waterBaseHeight + 1.0f;
+
+	//Chest
 	std::shared_ptr<Model> chestModel = loader.LoadShared("models/treasure_chest/treasure_chest.obj");
 	std::shared_ptr<Transform> chestTransform = std::make_shared<Transform>();
-	chestTransform->SetScale(glm::vec3(1.0f)); // Scale down the model
-	chestTransform->SetTranslation(glm::vec3(10.0f, 2.0f, 10.0f)); // Position it at the origin
+	chestTransform->SetScale(glm::vec3(1.0f)); 
+	chestTransform->SetTranslation(glm::vec3(10.0f, height, 10.0f));
 	m_opaqueScene.AddSceneNode(std::make_shared<SceneModel>("treasure chest", chestModel, chestTransform));
 
-	
-	
-	//std::shared_ptr<Model> cameraModel = loader.LoadShared("models/camera/camera.obj");
-	//m_scene.AddSceneNode(std::make_shared<SceneModel>("camera model", cameraModel));
+	//Camera
+	std::shared_ptr<Model> cameraModel = loader.LoadShared("models/camera/camera.obj");
+	std::shared_ptr<Transform> cameraTransform = std::make_shared<Transform>();
+	cameraTransform->SetScale(glm::vec3(10.0f)); 
+	cameraTransform->SetTranslation(glm::vec3(10.0f, height, 12.0f));
+	m_opaqueScene.AddSceneNode(std::make_shared<SceneModel>("camera model", cameraModel, cameraTransform));
 
-	//std::shared_ptr<Model> teaSetModel = loader.LoadShared("models/tea_set/tea_set.obj");
-	//m_scene.AddSceneNode(std::make_shared<SceneModel>("tea set", teaSetModel));
+	//Tea set
+	std::shared_ptr<Model> teaSetModel = loader.LoadShared("models/tea_set/tea_set.obj");
+	std::shared_ptr<Transform> teaSetTransform = std::make_shared<Transform>();
+	teaSetTransform->SetScale(glm::vec3(2.0f)); 
+	teaSetTransform->SetTranslation(glm::vec3(10.0f, height, 8.0f));
+	m_opaqueScene.AddSceneNode(std::make_shared<SceneModel>("tea set", teaSetModel, teaSetTransform));
 
-	//std::shared_ptr<Model> clockModel = loader.LoadShared("models/alarm_clock/alarm_clock.obj");
-	//m_scene.AddSceneNode(std::make_shared<SceneModel>("alarm clock", clockModel));
+	//Alarm clock
+	std::shared_ptr<Model> clockModel = loader.LoadShared("models/alarm_clock/alarm_clock.obj");
+	std::shared_ptr<Transform> clockTransform = std::make_shared<Transform>();
+	clockTransform->SetScale(glm::vec3(2.0f)); 
+	clockTransform->SetTranslation(glm::vec3(10.0f, height, 6.0f));
+	m_opaqueScene.AddSceneNode(std::make_shared<SceneModel>("alarm clock", clockModel, clockTransform));
 
-
+	// Sand plane
 	std::shared_ptr<Model> sandModel = std::make_shared<Model>(m_planeMesh);
 
 	m_sandTransform = std::make_shared<Transform>();
-	m_sandTransform->SetScale(m_waterScale); // Make it larger
-	m_sandTransform->SetTranslation(glm::vec3(0.0f, m_sandBaseHeight, 0.0f)); // Lower it slightly if needed
+	m_sandTransform->SetScale(m_waterScale); 
+	m_sandTransform->SetTranslation(glm::vec3(0.0f, m_sandBaseHeight, 0.0f)); 
 	sandModel->AddMaterial(m_sandMaterial);
 
 	m_opaqueScene.AddSceneNode(std::make_shared<SceneModel>("sand plane", sandModel, m_sandTransform));
 
+	// Load transparent models
 
+	// Water plane
 	std::shared_ptr<Model> waterModel = std::make_shared<Model>(m_planeMesh);
 
 	m_waterTransform = std::make_shared<Transform>();
 	m_waterTransform->SetScale(m_waterScale);
-	m_waterTransform->SetTranslation(glm::vec3(0.0f, m_waterBaseHeight, 0.0f)); // Lower it slightly if needed
+	m_waterTransform->SetTranslation(glm::vec3(0.0f, m_waterBaseHeight, 0.0f)); 
 	
 	waterModel->AddMaterial(m_waterMaterial);
 
 	m_transparentScene.AddSceneNode(std::make_shared<SceneModel>("water plane", waterModel, m_waterTransform));
 
+}
+
+void WaterApplication::InitializeRenderer()
+{
+	m_renderer.AddRenderPass(std::make_unique<ForwardRenderPass>());
+	m_renderer.AddRenderPass(std::make_unique<SkyboxRenderPass>(m_skyboxTexture));
+
+}
+
+void WaterApplication::SetupOffScreenBuffer()
+{
+	int winW, winH;
+	GetMainWindow().GetDimensions(winW, winH);
+	m_offscreenWidth = winW / 2; // lower res for offscreen rendering 
+	m_offscreenHeight = winW / 2;
+
+	m_offscreenWidth = NextPowerOfTwo(m_offscreenWidth);
+	m_offscreenHeight = NextPowerOfTwo(m_offscreenHeight);
 
 
+	// 2) color texture
+	m_offscreenColorTex = std::make_shared<Texture2DObject>();
+	m_offscreenColorTex->Bind();
+
+	m_offscreenColorTex->SetParameter(TextureObject::ParameterEnum::MinFilter, GL_LINEAR);
+	m_offscreenColorTex->SetParameter(TextureObject::ParameterEnum::MagFilter, GL_LINEAR);
+
+	m_offscreenColorTex->SetImage(
+		0,
+		m_offscreenWidth,
+		m_offscreenHeight,
+		TextureObject::Format::FormatRGBA,
+		TextureObject::InternalFormat::InternalFormatRGBA8);
+
+	Texture2DObject::Unbind();
+
+	// 3) depth texture
+	m_offscreenDepthTex = std::make_shared<Texture2DObject>();
+	m_offscreenDepthTex->Bind();
+
+	m_offscreenDepthTex->SetImage(
+		0,
+		m_offscreenWidth,
+		m_offscreenHeight,
+		TextureObject::Format::FormatDepth,
+		TextureObject::InternalFormat::InternalFormatDepth24);
+
+	Texture2DObject::Unbind();
+
+	// 4) make the FBO and attach
+	m_offscreenFBO = std::make_shared<FramebufferObject>();
+	m_offscreenFBO->Bind();
+
+	// attach color
+	m_offscreenFBO->SetTexture(
+		FramebufferObject::Target::Both,
+		FramebufferObject::Attachment::Color0,
+		*m_offscreenColorTex, 0);
+
+	// attach depth
+	m_offscreenFBO->SetTexture(
+		FramebufferObject::Target::Both,
+		FramebufferObject::Attachment::Depth,
+		*m_offscreenDepthTex, 0);
+
+	// set the draw buffers
+	std::array<FramebufferObject::Attachment, 1> drawBuffers = { FramebufferObject::Attachment::Color0 };
+	m_offscreenFBO->SetDrawBuffers(drawBuffers);
+
+	FramebufferObject::Unbind();
+}
+
+void WaterApplication::SetOffScreenCamera(Camera& camera, glm::vec3& originalPosition)
+{
+	// Get camera position
+	originalPosition = camera.ExtractTranslation();
+
+	// Mirror camera position over water plane
+	glm::vec3 reflectionPosition = originalPosition;
+	reflectionPosition.y = 2.0f * m_waterBaseHeight - originalPosition.y;
+
+	glm::vec3 up, forward, right;
+	camera.ExtractVectors(right, up, forward);
+
+	//Invert the pitch of the camera
+	forward.y = -forward.y;
+
+	up = glm::normalize(glm::cross(right, forward));
+	camera.SetViewMatrix(reflectionPosition, reflectionPosition - forward, up);
 }
 
 void WaterApplication::CreatePlaneMesh(Mesh& mesh, unsigned int gridX, unsigned int gridY)
@@ -705,46 +702,36 @@ void WaterApplication::CreatePlaneMesh(Mesh& mesh, unsigned int gridX, unsigned 
 		vertexFormat.LayoutBegin(static_cast<int>(vertices.size()), true), vertexFormat.LayoutEnd());
 }
 
-
-void WaterApplication::InitializeRenderer()
-{
-	m_renderer.AddRenderPass(std::make_unique<ForwardRenderPass>());
-	m_renderer.AddRenderPass(std::make_unique<SkyboxRenderPass>(m_skyboxTexture));
-
-}
-
 void WaterApplication::RenderGUI()
 {
 	m_imGui.BeginFrame();
 
 	// Draw GUI for scene nodes, using the visitor pattern
 	ImGuiSceneVisitor imGuiVisitor(m_imGui, "Scene");
+
 	m_opaqueScene.AcceptVisitor(imGuiVisitor);
 	m_transparentScene.AcceptVisitor(imGuiVisitor);
-
-	// Draw GUI for camera controller
 	m_cameraController.DrawGUI(m_imGui);
 
 	if (auto window = m_imGui.UseWindow("Debug"))
 	{
 		m_offscreenColorTex->Bind();
 
-		// 2) retrieve its GLuint handle
+		// retrieve its GLuint handle
 		GLint texHandle = 0;
 		glGetIntegerv(GL_TEXTURE_BINDING_2D, &texHandle);
 
 		Texture2DObject::Unbind();
 
-		// 4) cast to ImGui’s ImTextureID and draw
+		// cast to ImGui’s ImTextureID and draw
 		ImTextureID texID = reinterpret_cast<ImTextureID>(static_cast<intptr_t>(texHandle));
 		ImGui::Text("Scene preview:");
 		
 		ImVec2 size(m_offscreenWidth / 2, m_offscreenHeight / 2);
-		ImVec2 uv0(0, 0);  // Top left
-		ImVec2 uv1(1, 1);  // Bottom right
+		ImVec2 uv0(0, 0);
+		ImVec2 uv1(1, 1);
 		ImGui::Image(texID, size, uv0, uv1);
 	}
-
 
 	if (auto window = m_imGui.UseWindow("Water window"))
 	{
@@ -783,7 +770,13 @@ void WaterApplication::RenderGUI()
 			if (ImGui::SliderFloat("Peak Blend", &m_peakBlend, 0.001f, 0.5f))
 				m_waterMaterial->SetUniformValue("PeakBlend", m_peakBlend);
 
-			ImGui::Separator();
+		}
+
+
+		ImGui::Separator();
+
+		if (ImGui::CollapsingHeader("Wave Reflection"))
+		{
 
 			if (ImGui::SliderFloat("Fresnel Power", &m_fresnelPower, 0.0f, 10.0f))
 			{

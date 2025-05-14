@@ -30,6 +30,7 @@ uniform float WaterBaseHeight;
 uniform sampler2D ReflectionTexture;
 
 uniform float WaveFrequency;
+uniform float WaveAmplitude;
 uniform float WaveSpeed;
 uniform float Time;
 
@@ -95,7 +96,9 @@ void main()
     vec2 reflectTextCoords = vec2(1.0 - ndc.x, ndc.y);
 
     //add distortion
-    float distortionStrength = 0.01;
+    float baseDistortion = 0.05;
+    float distortionStrength = baseDistortion * WaveAmplitude;
+
     float frequency = WaveFrequency * 5.0;
     float noiseX = snoise(WorldPosition.xz * frequency + vec2(Time * WaveSpeed));
     float noiseY = snoise((WorldPosition.xz + vec2(13.0, 7.0)) * frequency + vec2(Time * WaveSpeed));

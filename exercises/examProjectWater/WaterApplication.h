@@ -36,7 +36,7 @@ private:
     void InitializeWaterMaterial();
     void InitializeSandMaterial();
 	void SetupOffScreenBuffer();
-    void SetOffScreenCamera(Camera& camera, glm::vec3& originalPosition, glm::mat4& originalViewMatrix);
+    void SetOffScreenCamera(Camera& camera, glm::vec3& originalPosition);
 
 	void InitializeMeshes();
     void InitializeModels();
@@ -44,7 +44,6 @@ private:
 
     void RenderGUI();
     void CreatePlaneMesh(Mesh& mesh, unsigned int gridX, unsigned int gridY);
-    void CreateTerrainMesh(Mesh& mesh, unsigned int gridX, unsigned int gridY, float noiseScale, float heightScale);
 
 private:
 
@@ -84,15 +83,18 @@ private:
     ShaderLoader m_vertexShaderLoader;
     ShaderLoader m_fragmentShaderLoader;
 
+    // mesh used for both water and sand planes
     std::shared_ptr<Mesh> m_planeMesh;
 
     glm::vec4 m_clipPlane;
 
+	// window dimensions
 	int m_width, m_height;
 
-    //uniforms
+	// water and sand plane dimensions
 	unsigned int m_gridX, m_gridY;
 
+    //uniforms
     float m_waterOpacity;
 	glm::vec4 m_waterTroughColor;
 	glm::vec4 m_waterSurfaceColor;
