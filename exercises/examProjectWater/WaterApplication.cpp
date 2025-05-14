@@ -399,19 +399,17 @@ void WaterApplication::SetOffScreenCamera(Camera& camera, glm::vec3& originalPos
 	glm::vec3 reflectionPosition = originalPosition;
 	reflectionPosition.y = 2.0f * m_waterBaseHeight - originalPosition.y;
 
-	// Get water center
-	glm::vec3 waterTranslation = glm::vec3(m_waterTransform->GetTransformMatrix()[3]);
-	glm::vec3 waterCenter = waterTranslation + glm::vec3(0.5f * m_waterScale.x, 0.0f, 0.5f * m_waterScale.z);
+	glm::vec3 up, forward, right;
+	camera.ExtractVectors(right, up, forward);
 
-	// Calculate camera to  water center vector
-	glm::vec3 directionToCenter = glm::normalize(waterCenter - originalPosition);
 
-	// Reflect the direction over the water plane
-	glm::vec3 reflectedDirection = directionToCenter;
-	reflectedDirection.y = -directionToCenter.y;
+	forward.y = -forward.y; 
 
+	up = glm::normalize(glm::cross(right, forward));  
+
+	
 	// Set reflection camera to look in the mirrored direction
-	camera.SetViewMatrix(reflectionPosition, reflectionPosition + reflectedDirection, glm::vec3(0, 1, 0));
+	camera.SetViewMatrix(reflectionPosition, reflectionPosition - forward, up);
 
 }
 
@@ -490,13 +488,7 @@ void WaterApplication::InitializeWaterMaterial()
 	m_waterMaterial->SetUniformValue("SandBaseHeight", m_sandBaseHeight);
 	m_waterMaterial->SetUniformValue("WaterBaseHeight", m_waterBaseHeight);
 
-
-	glm::vec2 reflectionScale(.02f / m_waterScale.x,
-		.02f / m_waterScale.z);
-
-	m_waterMaterial->SetUniformValue("ReflectionTextureScale", reflectionScale);
 	m_waterMaterial->SetUniformValue("ReflectionTexture", m_offscreenColorTex);
-
 
 	m_waterMaterial->SetBlendEquation(Material::BlendEquation::Add);
 	m_waterMaterial->SetBlendParams(Material::BlendParam::SourceAlpha, Material::BlendParam::OneMinusSourceAlpha);

@@ -8,7 +8,7 @@ out vec3 WorldPosition;
 out vec3 WorldNormal;
 out vec2 TexCoord;
 out float WaveHeight;
-out vec4 ClipSpaceCoord;
+out vec4 ClipSpace;
 
 uniform mat4 WorldMatrix;
 uniform mat4 ViewProjMatrix;
@@ -91,8 +91,8 @@ void main()
     WorldPosition.y += height;
     WorldNormal = calculateNormal(WorldPosition.xyz, height);
 	TexCoord = VertexTexCoord;
-    ClipSpaceCoord = ViewProjMatrix * vec4(WorldPosition, 1.0);
-
     WaveHeight = height;
-	gl_Position = ClipSpaceCoord;
+    ClipSpace = ViewProjMatrix * vec4(WorldPosition, 1.0);
+
+	gl_Position = ClipSpace;
 }
