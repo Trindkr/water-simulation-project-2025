@@ -92,7 +92,7 @@ void main()
    
     // ndc 
     vec2 ndc = ((ClipSpace.xy / ClipSpace.w) * 0.5) + 0.5;
-    vec2 reflectTextCoords = vec2(ndc.x, 1.0 - ndc.y);
+    vec2 reflectTextCoords = vec2(1.0 - ndc.x, ndc.y);
 
     //add distortion
     float distortionStrength = 0.01;

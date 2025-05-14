@@ -47,7 +47,7 @@ WaterApplication::WaterApplication(unsigned int x, unsigned int y)
 	, m_gridX(x)
 	, m_gridY(y)
 
-	, m_waterScale(glm::vec3(5.0f, 5.0f, 5.0f))
+	, m_waterScale(glm::vec3(20.0f, 1.0f, 20.0f))
 
 	// Water parameters
 	, m_waterOpacity(0.85f)
@@ -303,7 +303,7 @@ void WaterApplication::InitializeCamera()
 {
 	// Create the main camera
 	std::shared_ptr<Camera> camera = std::make_shared<Camera>();
-	camera->SetViewMatrix(glm::vec3(-1, 2, 1), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+	camera->SetViewMatrix(glm::vec3(10, 5, 5), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 	camera->SetPerspectiveProjectionMatrix(1.0f, 1.0f, 0.1f, 100.0f);
 
 	// Create a scene node for the camera
@@ -530,8 +530,8 @@ void WaterApplication::InitializeSandMaterial()
 	m_sandMaterial->SetUniformValue("Color", glm::vec4(1.0f));
 	m_sandMaterial->SetUniformValue("ColorTexture", sandTexture);
 
-	glm::vec2 sandTextureScale(.04f / m_waterScale.x,
-		.04f / m_waterScale.z);
+	glm::vec2 sandTextureScale(1.0f / m_waterScale.x,
+		1.0f / m_waterScale.z);
 
 
 	m_sandMaterial->SetUniformValue("ColorTextureScale", sandTextureScale);
@@ -597,7 +597,7 @@ void WaterApplication::InitializeModels()
 	std::shared_ptr<Model> chestModel = loader.LoadShared("models/treasure_chest/treasure_chest.obj");
 	std::shared_ptr<Transform> chestTransform = std::make_shared<Transform>();
 	chestTransform->SetScale(glm::vec3(1.0f)); // Scale down the model
-	chestTransform->SetTranslation(glm::vec3(0.0f, 2.0f, 0.0f)); // Position it at the origin
+	chestTransform->SetTranslation(glm::vec3(10.0f, 2.0f, 10.0f)); // Position it at the origin
 	m_opaqueScene.AddSceneNode(std::make_shared<SceneModel>("treasure chest", chestModel, chestTransform));
 
 	
@@ -740,8 +740,8 @@ void WaterApplication::RenderGUI()
 		ImGui::Text("Scene preview:");
 		
 		ImVec2 size(m_offscreenWidth / 2, m_offscreenHeight / 2);
-		ImVec2 uv0(0, 1);  // Top left
-		ImVec2 uv1(1, 0);  // Bottom right
+		ImVec2 uv0(0, 0);  // Top left
+		ImVec2 uv1(1, 1);  // Bottom right
 		ImGui::Image(texID, size, uv0, uv1);
 	}
 
