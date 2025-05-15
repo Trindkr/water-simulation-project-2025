@@ -232,7 +232,7 @@ void WaterApplication::InitializeCamera()
 {
 	// Create the main camera
 	std::shared_ptr<Camera> camera = std::make_shared<Camera>();
-	camera->SetViewMatrix(glm::vec3(10, 5, 5), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+	camera->SetViewMatrix(glm::vec3(2, 5, 5), glm::vec3(15.0f, 2.0f, 15.0f), glm::vec3(0, 1, 0));
 	camera->SetPerspectiveProjectionMatrix(1.0f, 1.0f, 0.1f, 100.0f);
 
 	// Create a scene node for the camera
