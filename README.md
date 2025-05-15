@@ -11,4 +11,4 @@ In Visual Studio this is done by
 4. Right click on it and select 'Add Debug Configuration'
 5. In the json file that opens, add the line "currentDir": "exam\\examProjectWater" to the configurations
 
-![Example Image](exam/images/DebugConfig.png)
+![Example Image](images/DebugConfig.png)
