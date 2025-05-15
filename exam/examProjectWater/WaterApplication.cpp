@@ -33,8 +33,6 @@
 #include <glm/gtx/transform.hpp>  
 
 #include <numbers>
-#define STB_PERLIN_IMPLEMENTATION
-#include <stb_perlin.h>
 #include <iostream>
 #include <glm/gtx/string_cast.hpp>
 
@@ -430,8 +428,8 @@ void WaterApplication::InitializeSandMaterial()
 	m_sandMaterial->SetUniformValue("Color", glm::vec4(1.0f));
 	m_sandMaterial->SetUniformValue("ColorTexture", sandTexture);
 
-	glm::vec2 sandTextureScale(1.0f / m_waterScale.x,
-		1.0f / m_waterScale.z);
+	glm::vec2 sandTextureScale(0.5f / m_waterScale.x,
+		0.5f / m_waterScale.z);
 
 	m_sandMaterial->SetUniformValue("ColorTextureScale", sandTextureScale);
 	m_sandMaterial->SetUniformValue("ClipPlane", m_clipPlane);
