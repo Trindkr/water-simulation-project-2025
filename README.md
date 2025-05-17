@@ -24,7 +24,7 @@ In Visual Studio this is done by
 Once this is done use cmake to build the project, and then run the executable.
 
 ## How to use 
-Once the program is running, you can use the following keys to control the simulation:
+Once the program is running, you can use the following keys to control the camera:
 - `W` - Move the camera forward
 - `S` - Move the camera backward
 - `A` - Move the camera left
