@@ -1,4 +1,12 @@
-## Graphics Programming Exam
+## Graphics Programming Exam - Water Simulation
+
+![Image](images/IngamePicture.png)
+
+
+### Description
+This is my exam project for the course "Graphics Programming" at the IT University of Copenhagen.
+The project is a water simulation created using C++ & OpenGL.
+The simulation includes dynamic water, water reflections, and light caustics.
 
 ### How to run
 To run this remember to add a debug configuration.
